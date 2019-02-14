@@ -1,12 +1,11 @@
 pragma solidity 0.5.3;
 
-import "../../node_modules/openzeppelin-solidity/contracts/math/SafeMath.sol";
-import "../../node_modules/openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
-import "./BancorBondingCurve.sol";
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
+import "./Utils/Curve.sol";
+import "../MogulToken/MogulToken.sol";
 
 
-contract MogulToken is ERC20, BancorBondingCurve, Ownable {
+contract ContinuousOrganisation is ERC20, Curve, Ownable {
     using SafeMath for uint256;
 
     address private raisingWallet;
@@ -23,6 +22,7 @@ contract MogulToken is ERC20, BancorBondingCurve, Ownable {
     ) public {
         reserveRatio = _reserveRatio;
         raisingWallet = _raisingWallet;
+        
         _mint(msg.sender, 1 * scale);
     }
 

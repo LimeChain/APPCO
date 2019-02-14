@@ -1,7 +1,7 @@
 pragma solidity 0.5.3;
 
-import "../../node_modules/openzeppelin-solidity/contracts/math/SafeMath.sol";
-import "./Power.sol"; // Efficient power function.
+import "./Power.sol";
+import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 
 /**
 * @title Bancor formula by Bancor
@@ -9,7 +9,7 @@ import "./Power.sol"; // Efficient power function.
 * Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements;
 * and to You under the Apache License, Version 2.0. "
 */
-contract BancorBondingCurve is Power {
+contract Curve is Power {
     using SafeMath for uint256;
     uint32 private constant MAX_RESERVE_RATIO = 1000000;
 

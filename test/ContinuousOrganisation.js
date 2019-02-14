@@ -1,5 +1,5 @@
 const etherlime = require('etherlime');
-const MogulToken = require('../build/MogulToken');
+const ContinuousOrganisation = require('../build/ContinuousOrganisation');
 
 const continuousRate = "500000";
 const owner = accounts[0].wallet.address;
@@ -12,13 +12,14 @@ let mogulTokenInstance;
 describe('MogulToken Tests', () => {
 
     beforeEach(async () => {
-        mogulTokenInstance = await deployer.deploy(MogulToken, {}, continuousRate, raisingWallet);
+        mogulTokenInstance = await deployer.deploy(ContinuousOrganisation, {}, continuousRate, raisingWallet);
     });
 
     describe('Deploying contract', () => {
 
         it('should deploy contract', function () {
             assert.isAddress(mogulTokenInstance.contractAddress);
+            console.log(mogulTokenInstance.contractAddress);
         });
 
         it('should have correct owner', async () => {
@@ -84,7 +85,6 @@ describe('MogulToken Tests', () => {
             });
 
             let mintedTokens = await mogulTokenInstance.balanceOf(userAccout.address);
-            console.log(mintedTokens.toString());
             let burnResult = await userContractInstance.calculateContinuousBurnReturn(mintedTokens);
 
             assert(valueInHex.gt(burnResult));
@@ -97,7 +97,7 @@ describe('MogulToken Tests', () => {
             let oneEth = "1000000000000000000";
             let oneEthInHex = ethers.utils.bigNumberify(oneEth);
 
-            // 2000 eth
+            // after 10000 eth invested the tokens for the first ether will be on profit.
             let value = "10000000000000000000000";
             let valueInHex = ethers.utils.bigNumberify(value);
 
@@ -106,8 +106,6 @@ describe('MogulToken Tests', () => {
             });
 
             let burnResult = await mogulTokenInstance.calculateContinuousBurnReturn(tokensBought);
-            console.log(burnResult.toString());
-            console.log(oneEthInHex.toString());
             assert(burnResult.gt(oneEthInHex));
         });
     });
