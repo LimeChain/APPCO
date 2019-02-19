@@ -4,3 +4,4 @@ build
 coverage
 .etherlime-store
 .idea
+.DS_Store
