@@ -9,6 +9,7 @@ let ContinuousOrganisationInstance;
 let MogulTokenInstance;
 let oneEth = "1000000000000000000";
 
+// !!!IMPORTANT!!! This tests are only for development purposes!
 describe("Prices", () => {
 
     beforeEach(async () => {

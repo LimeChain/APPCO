@@ -30,7 +30,7 @@ contract ContinuousOrganisation is Curve, Ownable {
     
     // TODO: add modifier ~onlyNotInited()
     function init() public onlyOwner {
-        // TODO: calculate initial dependence between eth and token
+        // TODO: calculate initial dependence between eth and token (think about setting it with the initialisation)
         mogulToken.mint(msg.sender, 1 * scale);
     }
     
