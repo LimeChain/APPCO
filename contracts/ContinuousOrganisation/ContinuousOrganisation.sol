@@ -4,7 +4,10 @@ import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 import "./Utils/Curve.sol";
 import "../MogulToken/MogulToken.sol";
 
-
+/**
+* @title POC of ContinuousOrganisation
+* @dev https://github.com/mogul-studios/poc-contracts
+*/
 contract ContinuousOrganisation is Curve, Ownable {
     using SafeMath for uint256;
     
@@ -13,6 +16,10 @@ contract ContinuousOrganisation is Curve, Ownable {
     uint256 public reserveRatio;
     MogulToken public mogulToken;
     
+    event ContinuousMint(address to, uint256 _amount, uint256 _deposit);
+    event ContinuousBurn(address from, uint256 _amount, uint256 _reimburseAmount);
+    
+    // TODO: implement owners wallet to collect 80% of gathered ethers
     constructor(
         uint256 _reserveRatio,
         address _mogulToken
@@ -21,7 +28,9 @@ contract ContinuousOrganisation is Curve, Ownable {
         reserveRatio = _reserveRatio;
     }
     
+    // TODO: add modifier ~onlyNotInited()
     function init() public onlyOwner {
+        // TODO: calculate initial dependence between eth and token
         mogulToken.mint(msg.sender, 1 * scale);
     }
     
@@ -34,6 +43,7 @@ contract ContinuousOrganisation is Curve, Ownable {
     
     function burn(uint256 _amount) public {
         uint256 returnAmount = _continuousBurn(_amount);
+        // TODO: should send 20%
         msg.sender.transfer(returnAmount);
     }
     
@@ -51,7 +61,7 @@ contract ContinuousOrganisation is Curve, Ownable {
         uint256 amount = calculateContinuousMintReturn(_deposit);
         mogulToken.mint(msg.sender, amount);
         reserveBalance = reserveBalance.add(_deposit);
-//        emit ContinuousMint(msg.sender, amount, _deposit);
+        emit ContinuousMint(msg.sender, amount, _deposit);
         return amount;
     }
     
@@ -62,7 +72,7 @@ contract ContinuousOrganisation is Curve, Ownable {
         uint256 reimburseAmount = calculateContinuousBurnReturn(_amount);
         reserveBalance = reserveBalance.sub(reimburseAmount);
         mogulToken.burnFrom(msg.sender, _amount);
-//        emit ContinuousBurn(msg.sender, _amount, reimburseAmount);
+        emit ContinuousBurn(msg.sender, _amount, reimburseAmount);
         return reimburseAmount;
     }
 }
