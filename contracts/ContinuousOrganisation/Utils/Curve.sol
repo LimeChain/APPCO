@@ -1,7 +1,8 @@
 pragma solidity 0.5.3;
 
-import "./Power.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
+
+import "./Power.sol"; // Efficient power function.
 
 /**
 * @title Bancor formula by Bancor
@@ -12,7 +13,7 @@ import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 contract Curve is Power {
     using SafeMath for uint256;
     uint32 private constant MAX_RESERVE_RATIO = 1000000;
-
+    
     /**
 	* @dev given a continuous token supply, reserve token balance, reserve ratio, and a deposit amount (in the reserve token),
 	* calculates the return for a given conversion (in the continuous token)
