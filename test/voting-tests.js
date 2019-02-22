@@ -48,6 +48,7 @@ describe('Voting Contract', () => {
 
             // 14 days
             const VOTING_DURATION = 24 * 60 * 60 * 14;
+            const INITIAL_MOVIES_RATING = '1000000000000000000';
 
             await deployMovieToken();
             await deployTokensSQRT();
@@ -58,7 +59,7 @@ describe('Voting Contract', () => {
 
             for (let i = 0; i < MOVIES.length; i++) {
                 let movieInitialRating = await votingContract.movies(MOVIES[i]);
-                assert.equal(movieInitialRating, 1, 'Incorrect movie');
+                assert(movieInitialRating.eq(INITIAL_MOVIES_RATING), 'Incorrect movie');
             }
 
             let tokenContract = await votingContract.movieTokenInstance();
@@ -90,8 +91,8 @@ describe('Voting Contract', () => {
             await deployVoting();
         });
 
-        it.only('Should vote with different votes amount correctly', async () => {
-            const TOKENS_AMOUNT = '5269871000000000000000000';
+        it('Should vote with different votes amount correctly', async () => {
+            const TOKENS_AMOUNT = '5269871000000000000';
             await movieTokenContract.mint(VOTER_ONE.address, TOKENS_AMOUNT);
 
 
@@ -102,8 +103,9 @@ describe('Voting Contract', () => {
             await votingContractVoter.vote(MOVIES[0]);
 
             let movieRating = await votingContract.movies(MOVIES[0]);
-            console.log(movieRating.toString());
 
+            // 3295619959800000000 is: 1 initial movie rating + 2.2956199598 tokens (sqrt of 5.269871)
+            assert.equal(movieRating.toString(), '3295619959800000000', 'Incorrect movie rating');
         });
 
         it('Should throw if voting period is expired', async () => {
