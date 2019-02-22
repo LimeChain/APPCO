@@ -91,7 +91,7 @@ describe('Voting Contract', () => {
         });
 
         it.only('Should vote with different votes amount correctly', async () => {
-            const TOKENS_AMOUNT = '5269871000000000000';
+            const TOKENS_AMOUNT = '5269871000000000000000000';
             await movieTokenContract.mint(VOTER_ONE.address, TOKENS_AMOUNT);
 
 
