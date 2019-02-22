@@ -1,48 +1,76 @@
+const ethers = require('ethers');
 const etherlime = require('etherlime');
 
 const Voting = require('./../build/Voting');
+const TokensSQRT = require('./../contracts/Math/TokensSQRT.json');
+
 const MovieToken = require('./../build/MovieToken');
 
 describe('Voting Contract', () => {
 
-    const OWNER = accounts[0].wallet.address;
-    const VOTER_ONE = accounts[1].wallet.address;
-    const VOTER_TWO = accounts[2].wallet.address;
+    const OWNER = accounts[0].signer;
+    const VOTER_ONE = accounts[1].signer;
+    const VOTER_TWO = accounts[2].signer;
 
     const MOVIES = [
-        '0x4d6f76696531', // Movie1
-        '0x4d6f76696532', // Movie2
-        '0x4d6f76696533', // Movie3
-        '0x4d6f76696534', // Movie4
-        '0x4d6f76696535'  // Movie5
+        '0x4d6f766965310000000000000000000000000000000000000000000000000000', // Movie1
+        '0x4d6f766965320000000000000000000000000000000000000000000000000000', // Movie2
+        '0x4d6f766965330000000000000000000000000000000000000000000000000000', // Movie3
+        '0x4d6f766965340000000000000000000000000000000000000000000000000000', // Movie4
+        '0x4d6f766965350000000000000000000000000000000000000000000000000000'  // Movie5
     ];
 
-    let voteContract;
+    let sqrtContractAddress;
+    let votingContract;
     let movieTokenContract;
 
+    let deployer = new etherlime.EtherlimeGanacheDeployer();
+
+
+    async function deployMovieToken() {
+        movieTokenContract = (await deployer.deploy(MovieToken, {})).contract;
+    }
+
+    async function deployTokensSQRT() {
+        let tx = await OWNER.sendTransaction({
+            data: TokensSQRT.bytecode
+        });
+
+        sqrtContractAddress = (await OWNER.provider.getTransactionReceipt(tx.hash)).contractAddress;
+    }
+
+    async function deployVoting() {
+        votingContract = (await deployer.deploy(Voting, {}, movieTokenContract.address, MOVIES, sqrtContractAddress)).contract;
+    }
 
     describe('Initialization', function () {
         it('Should initialize the contract correctly', async () => {
-            let deployer = new etherlime.EtherlimeGanacheDeployer();
 
-            movieTokenContract = (await deployer.deploy(MovieToken, {})).contract;
+            // 14 days
+            const VOTING_DURATION = 24 * 60 * 60 * 14;
 
-            let approximateStartDate = new Date(Date.now());
-            let approximateStartDate = approximateStartDate.setMinutes(approximateStartDate.getMinutes() + 1);
+            await deployMovieToken();
+            await deployTokensSQRT();
 
-            voteContract = await deployer.deploy(Voting, {}, movieTokenContract.address, MOVIES);
+            let startDate = Date.now() / 1000 | 0;
+            await deployVoting();
 
-            let votingMovies = await contract.movies();
 
-            for (let i = 0; i < votingMovies.length; i++) {
-                assert.equal(votingMovies[i], MOVIES[i], 'Incorrect movie');
+            for (let i = 0; i < MOVIES.length; i++) {
+                let movieInitialRating = await votingContract.movies(MOVIES[i]);
+                assert.equal(movieInitialRating, 1, 'Incorrect movie');
             }
 
-            let tokenContract = await voteContract.movieTokenContract();
+            let tokenContract = await votingContract.movieTokenInstance();
             assert.equal(tokenContract, movieTokenContract.address, 'Incorrect movie token');
 
-            let votingStartDate = await voteContract.startDate();
-            assert(approximateStartDate < votingStartDate < new Date(approximateStartDate).setMinutes());
+            let sqrtContract = await votingContract.sqrtInstance();
+            assert.equal(sqrtContract, sqrtContractAddress, 'Incorrect sqrt instance');
+
+            let votingExpirationDate = (await votingContract.expirationDate());
+            let expectedExpirationDate = startDate + VOTING_DURATION;
+
+            assert(votingExpirationDate.eq(expectedExpirationDate), 'Expiration date is not correct');
         });
 
         it('Should throw if one provide empty movie token address', async () => {
@@ -57,13 +85,24 @@ describe('Voting Contract', () => {
     describe('Voting', function () {
 
         beforeEach(async () => {
-            let deployer = new etherlime.EtherlimeGanacheDeployer();
-
-            movieTokenContract = await deployer.deploy(MovieToken, {});
-            voteContract = await deployer.deploy(Voting, {}, continuousRate, raisingWallet);
+            await deployMovieToken();
+            await deployTokensSQRT();
+            await deployVoting();
         });
 
-        it('Should vote with different votes amount correctly', async () => {
+        it.only('Should vote with different votes amount correctly', async () => {
+            const TOKENS_AMOUNT = '5269871000000000000';
+            await movieTokenContract.mint(VOTER_ONE.address, TOKENS_AMOUNT);
+
+
+            let tokenContractVoter = new ethers.Contract(movieTokenContract.address, MovieToken.abi, VOTER_ONE);
+            await tokenContractVoter.approve(votingContract.address, TOKENS_AMOUNT);
+
+            let votingContractVoter = new ethers.Contract(votingContract.address, Voting.abi, VOTER_ONE);
+            await votingContractVoter.vote(MOVIES[0]);
+
+            let movieRating = await votingContract.movies(MOVIES[0]);
+            console.log(movieRating.toString());
 
         });
 
@@ -76,10 +115,6 @@ describe('Voting Contract', () => {
         });
 
         it('Should throw if one does not approve required tokens amount for votes', async () => {
-
-        });
-
-        it('Should throw if ', async () => {
 
         });
     });

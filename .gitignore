@@ -6,3 +6,11 @@ coverage
 .idea
 .DS_Store
 vyper
+./build/ERC20.json
+./build/IERC20.json
+./build/ERC20Burnable.json
+./build/ERC20Mintable.json
+./build/Ownable.json
+./build/SafeMath.json
+./build/Roles.json
+./build/MinterRole.json

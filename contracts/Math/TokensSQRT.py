@@ -1,5 +1,5 @@
 @public
-def sqrt_decimal(num: uint256) -> uint256:
+def tokens_sqrt(num: uint256) -> uint256:
     if num == 0:
         return 0
     

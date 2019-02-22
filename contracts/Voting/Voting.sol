@@ -1,4 +1,4 @@
-pragma solidity ^0.5.0;
+pragma solidity ^0.5.3;
 
 import "./../Tokens/MovieToken/MovieToken.sol";
 import "./../../node_modules/openzeppelin-solidity/contracts/math/SafeMath.sol";
@@ -29,17 +29,21 @@ contract Voting {
    
 
     modifier whenInLive(){
-        require(now() <= expirationDate, "Voting period is expired");
+        require(now <= expirationDate, "Voting period is expired");
         _;
     }
 
-    constructor(address movieTokenContract, uint256[] movies, address sqrtContract) public {
-        require(movies.length <= MAX_MOVIES_COUNT, "Movies are more than the allowed quantity");
+    constructor(address movieTokenContract, bytes32[] memory moviesNames, address sqrtContract) public {
+        require(moviesNames.length <= MAX_MOVIES_COUNT, "Movies are more than the allowed quantity");
         
-        expirationDate = now().add(VOTING_DURATION);
+        expirationDate = now.add(VOTING_DURATION);
+
+        for(uint8 i = 0; i < moviesNames.length; i++){
+            movies[moviesNames[i]] = 1000000000000000000; // rating of one token
+        }
 
         sqrtInstance = sqrtContract;
-        movieTokenInstance = movieTokenContract;
+        movieTokenInstance = MovieToken(movieTokenContract);
     }
 
     function vote(bytes32 movie) public whenInLive {
@@ -51,16 +55,16 @@ contract Voting {
  
         movieTokenInstance.transferFrom(msg.sender, address(this), voterTokensBalance);
 
-        uint256 rating = __calculateRatingByTokens(msg.sender, voterTokensBalance);
+        uint256 rating = __calculateRatingByTokens(voterTokensBalance);
 
-        movies[movieTitle] = movies[movieTitle].add(rating);
+        movies[movie] = movies[movie].add(rating);
         voters[msg.sender].votingTokens.add(voterTokensBalance);
     }
 
     // Rating is calculated as => sqrt(voter tokens balance) => 1 token = 1 rating; 9 tokens = 3 rating
-    function __calculateRatingByTokens(address voter, uint256 tokens) private pure returns(uint256){
+    function __calculateRatingByTokens(uint256 tokens) private returns(uint256){
         // Call a Vyper SQRT contract in order to work with decimals in sqrt
-        (bool success, bytes  memory data) = sqrtInstance.call(abi.encodeWithSignature("sqrt_decimal(uint256)", tokens));
+        (bool success, bytes  memory data) = sqrtInstance.call(abi.encodeWithSignature("tokens_sqrt(uint256)", tokens));
         require(success);
 
         // Convert bytes in to uint256

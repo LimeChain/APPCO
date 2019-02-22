@@ -1,8 +1,8 @@
-pragma solidity 0.5.3;
+pragma solidity ^0.5.3;
 
-import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 import "./Utils/Curve.sol";
-import "../MogulToken/MogulToken.sol";
+import "./../Tokens/MogulToken/MogulToken.sol";
+import "./../../node_modules/openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
 /**
 * @title POC of ContinuousOrganisation

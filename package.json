@@ -10,6 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "etherlime": "^1.0.1",
+    "ethers": "^4.0.26",
     "openzeppelin-solidity": "^2.1.2"
   }
 }
