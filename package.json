@@ -9,7 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "etherlime": "^1.0.0",
+    "etherlime": "^1.0.1",
     "openzeppelin-solidity": "^2.1.2"
   }
 }
