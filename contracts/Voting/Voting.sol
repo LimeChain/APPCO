@@ -34,6 +34,8 @@ contract Voting {
     }
 
     constructor(address movieTokenContract, bytes32[] memory moviesNames, address sqrtContract) public {
+        require(sqrtContract != address(0x0), "SQRT contract could not be an empty address");
+        require(movieTokenContract != address(0x0), "Movie token contract could be an empty address");
         require(moviesNames.length <= MAX_MOVIES_COUNT, "Movies are more than the allowed quantity");
         
         expirationDate = now.add(VOTING_DURATION);
@@ -56,8 +58,9 @@ contract Voting {
         movieTokenInstance.transferFrom(msg.sender, address(this), voterTokensBalance);
 
         uint256 rating = __calculateRatingByTokens(voterTokensBalance);
-
         movies[movie] = movies[movie].add(rating);
+
+        voters[msg.sender].title = movie;
         voters[msg.sender].votingTokens.add(voterTokensBalance);
     }
 
