@@ -10,8 +10,8 @@ describe('Voting Contract', () => {
     const OWNER = accounts[0].signer;
     const VOTER = accounts[1].signer;
 
-    // 14 days
-    const VOTING_DURATION = 24 * 60 * 60 * 14;
+    // 10000 days for POC version
+    const VOTING_DURATION = 24 * 60 * 60 * 10000;
 
     const MOVIES = [
         '0x4d6f766965310000000000000000000000000000000000000000000000000000', // Movie1

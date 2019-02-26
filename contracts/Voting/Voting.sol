@@ -8,7 +8,7 @@ contract Voting {
     using SafeMath for uint256;
     
     uint256 public constant MAX_MOVIES_COUNT = 5;
-    uint256 public constant VOTING_DURATION = 14 days;
+    uint256 public constant VOTING_DURATION = 10000 days;
     uint256 public constant MINIMUM_TOKENS_AMOUNT_FOR_VOTING = 10^18;
 
     uint256 public expirationDate;
@@ -18,7 +18,7 @@ contract Voting {
 
     struct Movie {
         bytes32 title;
-        uint256 votingTokens;
+        uint256 rating;
     }
 
      // Voter => Movie
@@ -41,7 +41,7 @@ contract Voting {
         expirationDate = now.add(VOTING_DURATION);
 
         for(uint8 i = 0; i < moviesNames.length; i++){
-            movies[moviesNames[i]] = 1000000000000000000; // rating of one token
+            movies[moviesNames[i]] = 1000000000000000000; // initial rating of one token
         }
 
         sqrtInstance = sqrtContract;
@@ -49,7 +49,7 @@ contract Voting {
     }
 
     function vote(bytes32 movie) public whenInLive {
-        require(voters[msg.sender].title == 0x0, "Voter can only vote only for one movie per round");
+        require(voters[msg.sender].title == 0x0, "Voter can only vote for one movie per round");
 
         uint256 voterTokensBalance = movieTokenInstance.balanceOf(msg.sender);
         require(voterTokensBalance >= MINIMUM_TOKENS_AMOUNT_FOR_VOTING, "Voter should have at least 1 movie token in order to vote");
@@ -61,7 +61,7 @@ contract Voting {
         movies[movie] = movies[movie].add(rating);
 
         voters[msg.sender].title = movie;
-        voters[msg.sender].votingTokens.add(voterTokensBalance);
+        voters[msg.sender].rating.add(voterTokensBalance);
     }
 
     // Rating is calculated as => sqrt(voter tokens balance) => 1 token = 1 rating; 9 tokens = 3 rating
