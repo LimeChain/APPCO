@@ -8,6 +8,7 @@ contract Voting {
     using SafeMath for uint256;
     
     uint256 public constant MAX_MOVIES_COUNT = 5;
+    // This duration is only for POC purpose
     uint256 public constant VOTING_DURATION = 10000 days;
     uint256 public constant MINIMUM_TOKENS_AMOUNT_FOR_VOTING = 10^18;
 
