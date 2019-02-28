@@ -7,9 +7,9 @@ import "./../../../node_modules/openzeppelin-solidity/contracts/token/ERC20/ERC2
 // POC purposes
 contract MogulDAI is ERC20Detailed, ERC20Mintable, ERC20Burnable  {
 
-    constructor() ERC20Detailed(
+    constructor() ERC20Detailed (
         "Mogul DAI",
-        "MGLD", 
+        "MGLD",
         18
     ) public { }
 }

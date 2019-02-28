@@ -1,9 +1,9 @@
-pragma solidity 0.5.3;
+pragma solidity 0.5.4;
 
-import "./Math/BondingMathematics.sol";
 import "./Tokens/MogulDAI/MogulDAI.sol";
 import "./Tokens/MogulToken/MogulToken.sol";
 import "./Tokens/MovieToken/MovieToken.sol";
+import "./Math/BondingMathematics.sol";
 
 
 contract MogulOrganisation {
