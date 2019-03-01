@@ -1,6 +1,6 @@
 const etherlime = require('etherlime');
 const MogulDAI = require('../build/MogulDAI');
-const MogulOrganisation = require('./../build/MogulOrganisation');
+const MogulOrganisationTests = require('./../build/MogulOrganisation');
 const MovieToken = require('../build/MovieToken');
 const MogulToken = require('../build/MogulToken');
 const BondingMathematics = require('../build/BondingMathematics');
@@ -13,7 +13,7 @@ describe('MogulOrganisation Contract', () => {
     const mglOrgDaiSupply = "500000000000000000";
     const initialMglSupply = "1000000000000000000";
     const ONE_ETH = "1000000000000000000";
-    const MOGUL_BANK = "0x87e0ed760fb316eeb94bd9cf23d1d2be87ace3d8";
+    const MOGUL_BANK = accounts[9].signer.address;
 
     let sqrtContractAddress;
     let bondingMathematicsInstance;
@@ -34,14 +34,12 @@ describe('MogulOrganisation Contract', () => {
         mogulDAIInstance = await deployer.deploy(MogulDAI);
         movieTokenInstance = await deployer.deploy(MovieToken);
 
-        mogulOrganisationInstance = await deployer.deploy(MogulOrganisation, {},
+        mogulOrganisationInstance = await deployer.deploy(MogulOrganisationTests, {},
             bondingMathematicsInstance.contractAddress,
             mogulDAIInstance.contractAddress,
             movieTokenInstance.contractAddress,
             mglOrgDaiSupply,
-            initialMglSupply,
             MOGUL_BANK)
-
     }
 
     async function mintDAI(addr, amount) {
@@ -52,22 +50,14 @@ describe('MogulOrganisation Contract', () => {
         await mogulDAIInstance.approve(to, amount)
     }
 
-    it('Should initialize the contract correctly', async () => {
-        await deployContracts();
-        // console.log(mogulOrganisationInstance.contractAddress);
-    });
-
     it('Should invest', async () => {
         await deployContracts();
         await mintDAI(OWNER.address, ONE_ETH);
         await approveDAI(mogulOrganisationInstance.contractAddress, ONE_ETH);
 
-        let mglTokenAddr = await mogulOrganisationInstance.mogulToken();
-        let mglTokenInstance = new ethers.Contract(mglTokenAddr, MogulToken.abi, OWNER.provider);
-        let mglTokenInstanceWithWallet = mglTokenInstance.connect(OWNER);
+        await mogulOrganisationInstance.invest(ONE_ETH, {
+            gasLimit: 200000
+        });
 
-        await mglTokenInstanceWithWallet.approve(mogulOrganisationInstance.contractAddress, ONE_ETH);
-
-        await mogulOrganisationInstance.invest(ONE_ETH);
     });
 });
