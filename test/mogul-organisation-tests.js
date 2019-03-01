@@ -13,6 +13,7 @@ describe('MogulOrganisation Contract', () => {
     const mglOrgDaiSupply = "500000000000000000";
     const initialMglSupply = "1000000000000000000";
     const ONE_ETH = "1000000000000000000";
+    const TWO_ETH = "2000000000000000000";
     const MOGUL_BANK = accounts[9].signer.address;
 
     let sqrtContractAddress;
@@ -38,8 +39,9 @@ describe('MogulOrganisation Contract', () => {
             bondingMathematicsInstance.contractAddress,
             mogulDAIInstance.contractAddress,
             movieTokenInstance.contractAddress,
-            mglOrgDaiSupply,
-            MOGUL_BANK)
+            MOGUL_BANK);
+
+        await movieTokenInstance.addMinter(mogulOrganisationInstance.contractAddress);
     }
 
     async function mintDAI(addr, amount) {
@@ -52,12 +54,16 @@ describe('MogulOrganisation Contract', () => {
 
     it('Should invest', async () => {
         await deployContracts();
-        await mintDAI(OWNER.address, ONE_ETH);
+        await mintDAI(OWNER.address, TWO_ETH);
+
+        // Approve initial DAI supply in order to unlock the organization
         await approveDAI(mogulOrganisationInstance.contractAddress, ONE_ETH);
+        await mogulOrganisationInstance.unlock(ONE_ETH);
 
+        // Approve for investment
+        await approveDAI(mogulOrganisationInstance.contractAddress, ONE_ETH);
         await mogulOrganisationInstance.invest(ONE_ETH, {
-            gasLimit: 200000
+            gasLimit: 800000
         });
-
     });
 });
