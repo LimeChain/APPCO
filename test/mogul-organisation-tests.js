@@ -102,7 +102,7 @@ describe('Mogul Organisation Contract', () => {
             let investorMogulBalance = await mogulTokenInstance.balanceOf(INVESTOR.address);
             investorMogulBalance = (Number(investorMogulBalance.toString()) / normalization).toFixed(9);
 
-            assert.equal(investorMogulBalance, EXPECTED_INVESTOR_MOGUL_BALANCE, 'Incorrect investor mogul balance after investment');
+            assert.strictEqual(investorMogulBalance, EXPECTED_INVESTOR_MOGUL_BALANCE, 'Incorrect investor mogul balance after investment');
 
 
             // 1:10 = mogul:movie token
@@ -110,7 +110,7 @@ describe('Mogul Organisation Contract', () => {
             let investorMovieBalance = await movieTokenInstance.balanceOf(INVESTOR.address);
             investorMovieBalance = (Number(investorMovieBalance.toString()) / normalization).toFixed(8);
 
-            assert.equal(investorMovieBalance, EXPECTED_INVESTOR_MOVIE_BALANCE, 'Incorrect investor movie balance after investment');
+            assert.strictEqual(investorMovieBalance, EXPECTED_INVESTOR_MOVIE_BALANCE, 'Incorrect investor movie balance after investment');
 
 
             // EXPECTED_INVESTMENTS_AMOUNT = unlocking amount + investment amount
