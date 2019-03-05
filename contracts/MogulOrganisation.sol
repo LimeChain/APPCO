@@ -26,11 +26,11 @@ contract MogulOrganisation {
     uint256 constant public INITIAL_MGLTOKEN_SUPPLY = 1000000000000000000; // 1 Mogul Token
 
     event Invest(address investor, uint256 amount);
+    event Withdraw(address investor, uint256 amount);
     event UnlockOrganisation(address unlocker, uint256 initialAmount);
     
-    // TODO: set this address to real one. Now it's set to 9th of testrpcs
-
     constructor(address _bondingMath, address _mogulDAI, address _movieToken, address _mogulBank) public {
+        
         require(_mogulDAI != address(0), "Mogul DAI address is required");
         require(_movieToken != address(0), "Movie Token address is required");
         require(_mogulBank != address(0), "Mogul Bank address is required");
@@ -63,6 +63,18 @@ contract MogulOrganisation {
         daiReserve = daiReserve.add(reserveDAIAmount);
 
         emit Invest(msg.sender, _daiAmount);
+    }
+    
+    function revokeInvestment(uint256 _amountMGL) public {
+        require(mogulToken.allowance(msg.sender, address(this)) >= _amountMGL, "Investor wants to withdraw his MGL investment");
+        
+        uint256 daiToReturn = bondingMath.calcTokenSell(mogulToken.totalSupply(), daiReserve, _amountMGL);
+        
+        daiReserve = daiReserve.sub(daiToReturn);
+        daiSupply = daiSupply.sub(daiToReturn);
+
+        mogulDAI.transfer(msg.sender, daiToReturn);
+        Withdraw(msg.sender, daiToReturn);
     }
     
     function calcRelevantMGLForDAI(uint256 _daiAmount) public view returns(uint256) {
