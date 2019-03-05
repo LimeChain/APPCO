@@ -27,7 +27,9 @@ contract Voting {
 
     // Movie => rating (Sum)
     mapping(bytes32 => uint256) public movies;
-   
+
+    event Vote(address voter, bytes32 movie, uint256 tokens, uint256 rating);
+
 
     modifier whenInLive(){
         require(now <= expirationDate, "Voting period is expired");
@@ -35,8 +37,8 @@ contract Voting {
     }
 
     constructor(address movieTokenContract, bytes32[] memory moviesNames, address sqrtContract) public {
-        require(sqrtContract != address(0x0), "SQRT contract could not be an empty address");
-        require(movieTokenContract != address(0x0), "Movie token contract could be an empty address");
+        require(sqrtContract != address(0), "SQRT contract could not be an empty address");
+        require(movieTokenContract != address(0), "Movie token contract could be an empty address");
         require(moviesNames.length <= MAX_MOVIES_COUNT, "Movies are more than the allowed quantity");
         
         expirationDate = now.add(VOTING_DURATION);
@@ -63,12 +65,14 @@ contract Voting {
 
         voters[msg.sender].title = movie;
         voters[msg.sender].rating.add(voterTokensBalance);
+
+        emit Vote(msg.sender, movie, voterTokensBalance, rating);
     }
 
     // Rating is calculated as => sqrt(voter tokens balance) => 1 token = 1 rating; 9 tokens = 3 rating
     function __calculateRatingByTokens(uint256 tokens) private returns(uint256){
         // Call a Vyper SQRT contract in order to work with decimals in sqrt
-        (bool success, bytes  memory data) = sqrtInstance.call(abi.encodeWithSignature("tokens_sqrt(uint256)", tokens));
+        (bool success, bytes  memory data) = sqrtInstance.staticcall(abi.encodeWithSignature("tokens_sqrt(uint256)", tokens));
         require(success);
 
         // Convert bytes in to uint256

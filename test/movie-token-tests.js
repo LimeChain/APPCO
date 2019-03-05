@@ -6,8 +6,8 @@ describe('Movie Token Contract', () => {
 
     const OWNER = accounts[0].signer.address;
 
-    const TOKEN_NAME = 'Mogul Movie Coin'
-    const TOKEN_SYMBOL = 'MGLMC'
+    const TOKEN_NAME = 'Mogul Movie Coin';
+    const TOKEN_SYMBOL = 'MGLMC';
     const TOKEN_DECIMALS = 18;
 
     it('Should initialize the contract correctly', async () => {
