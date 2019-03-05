@@ -10,7 +10,7 @@ const BondingMathematics = require('./../build/BondingMathematics');
 
 const MogulOrganisation = require('./../build/MogulOrganisation');
 
-describe.only('Mogul Organisation Contract', () => {
+describe('Mogul Organisation Contract', () => {
 
     const deployer = new etherlime.EtherlimeGanacheDeployer();
 
