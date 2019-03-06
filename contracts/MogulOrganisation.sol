@@ -18,8 +18,7 @@ contract MogulOrganisation {
 
     address public mogulBank;
 
-    uint256 public daiSupply = 0;
-    uint256 public daiReserve = 0;
+    uint256 public totalDAIInvestments = 0;
     
     uint256 constant public MOVIE_TO_MGL_RATE = 10; // 1 Mogul Token -> 10 Movie Tokens (Utility tokens)
     uint256 constant public DAI_RESERVE_REMAINDER = 5; // 20%
@@ -47,8 +46,8 @@ contract MogulOrganisation {
     }
     
     function invest(uint256 _daiAmount) public {
-        require(daiSupply > 0, "Organisation is not unlocked for investments yet");
-        require(mogulDAI.allowance(msg.sender, address(this)) >= _daiAmount, "Investor wants to invest with unapproved DAI amount");
+        require(totalDAIInvestments > 0, "Organisation is not unlocked for investments yet");
+        require(mogulDAI.allowance(msg.sender, address(this)) >= _daiAmount, "Investor tries to invest with unapproved DAI amount");
 
         uint256 mglTokensToMint = calcRelevantMGLForDAI(_daiAmount);
 
@@ -59,8 +58,7 @@ contract MogulOrganisation {
         mogulToken.mint(msg.sender, mglTokensToMint);
         movieToken.mint(msg.sender, mglTokensToMint.mul(MOVIE_TO_MGL_RATE));
 
-        daiSupply = daiSupply.add(_daiAmount);
-        daiReserve = daiReserve.add(reserveDAIAmount);
+        totalDAIInvestments = totalDAIInvestments.add(_daiAmount);
 
         emit Invest(msg.sender, _daiAmount);
     }
@@ -78,15 +76,17 @@ contract MogulOrganisation {
     }
     
     function calcRelevantMGLForDAI(uint256 _daiAmount) public view returns(uint256) {
-        uint256 tokensAfterPurchase = bondingMath.calcPurchase(mogulToken.totalSupply(), daiSupply, _daiAmount);
+        uint256 tokensAfterPurchase = bondingMath.calcPurchase(mogulToken.totalSupply(), totalDAIInvestments, _daiAmount);
         return tokensAfterPurchase.sub(mogulToken.totalSupply());
     }
 
-    function unlock(uint256 _daiAmount) public {
-        require(daiSupply == 0, "Organization is already unlocked");
-        require(mogulDAI.allowance(msg.sender, address(this)) >= _daiAmount, "Unlocker wants to load initial amount with unapproved DAI");
+    function unlockOrganisation(uint256 _unlockAmount) public {
+        require(totalDAIInvestments == 0, "Organization is already unlocked");
+        require(mogulDAI.allowance(msg.sender, address(this)) >= _unlockAmount, "Unlocker tries to unlock with unapproved DAI amount");
 
-        daiSupply = _daiAmount;
-        emit UnlockOrganisation(msg.sender, _daiAmount);
+        mogulDAI.transferFrom(msg.sender, address(this), _unlockAmount);
+
+        totalDAIInvestments = _unlockAmount;
+        emit UnlockOrganisation(msg.sender, _unlockAmount);
     }
 }
