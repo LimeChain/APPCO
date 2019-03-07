@@ -1,5 +1,6 @@
 const etherlime = require('etherlime');
 const { buyCalc, sellCalc } = require('./utils/token-price-calculation');
+const contractInitializator = require('./utils/contract-initializator');
 
 const MogulDAI = require('./../build/MogulDAI');
 const MovieToken = require('./../build/MovieToken');
@@ -18,11 +19,14 @@ describe('Mogul Organisation Contract', () => {
     const INVESTOR = accounts[1].signer;
     const MOGUL_BANK = accounts[9].signer.address;
 
-    const mglOrgDaiSupply = "500000000000000000";
     const INITIAL_MOGUL_SUPPLY = "1000000000000000000";
 
     const ONE_ETH = "1000000000000000000";
     const TWO_ETH = "2000000000000000000";
+    const normalization = 1000000000000000000;
+
+    const INVESTMENT_AMOUNT = ONE_ETH;
+    const UNLOCK_AMOUNT = ONE_ETH;
 
     let sqrtContractAddress;
     let bondingMathematicsInstance;
@@ -33,16 +37,11 @@ describe('Mogul Organisation Contract', () => {
 
     let mogulOrganisationInstance;
 
-    async function deployTokensSQRT() {
-        let tx = await OWNER.sendTransaction({
-            data: SQRT.bytecode
-        });
-        sqrtContractAddress = (await OWNER.provider.getTransactionReceipt(tx.hash)).contractAddress;
-    }
-
     async function deployContracts() {
-        await deployTokensSQRT();
+        sqrtContractAddress = await contractInitializator.deployTokensSQRT(OWNER);
+
         bondingMathematicsInstance = await deployer.deploy(BondingMathematics, {}, sqrtContractAddress);
+
         mogulDAIInstance = await deployer.deploy(MogulDAI);
         movieTokenInstance = await deployer.deploy(MovieToken);
 
@@ -52,67 +51,64 @@ describe('Mogul Organisation Contract', () => {
             movieTokenInstance.contractAddress,
             MOGUL_BANK);
 
-        let mogulTokenAddress = await mogulOrganisationInstance.mogulToken();
-        mogulTokenInstance = new ethers.Contract(mogulTokenAddress, MogulToken.abi, OWNER);
+        mogulTokenInstance = await contractInitializator.getMogulToken(mogulOrganisationInstance, OWNER);
 
         // Mint and Approve 1 ETH in order to unlock the organization
-        await mintDAI(OWNER.address, ONE_ETH);
-        await approveDAI(OWNER, mogulOrganisationInstance.contractAddress, ONE_ETH);
+        await contractInitializator.mintDAI(mogulDAIInstance,OWNER.address, ONE_ETH);
+        await contractInitializator.approveDAI(mogulDAIInstance, OWNER, mogulOrganisationInstance.contractAddress, ONE_ETH);
 
         await movieTokenInstance.addMinter(mogulOrganisationInstance.contractAddress);
     }
 
-    async function mintDAI(addr, amount) {
-        await mogulDAIInstance.mint(addr, amount)
-    }
-
-    async function approveDAI(approver, to, amount) {
-        await mogulDAIInstance.from(approver).approve(to, amount)
-    }
-
     describe('Invest', function () {
-        it('Should invest', async () => {
+
+        beforeEach(async () => {
             await deployContracts();
-            await mintDAI(INVESTOR.address, ONE_ETH);
 
-            const INVESTMENT_AMOUNT = ONE_ETH;
-            const UNLOCK_AMOUNT = ONE_ETH;
-
-            // Approve 1 ETH for investment
-            await approveDAI(INVESTOR, mogulOrganisationInstance.contractAddress, INVESTMENT_AMOUNT);
+            // await approveDAI(INVESTOR, mogulOrganisationInstance.contractAddress, INVESTMENT_AMOUNT);
+            await contractInitializator.mintDAI(mogulDAIInstance,INVESTOR.address, ONE_ETH);
+            await contractInitializator.approveDAI(mogulDAIInstance, INVESTOR, mogulOrganisationInstance.contractAddress, ONE_ETH);
 
             await mogulOrganisationInstance.unlockOrganisation(UNLOCK_AMOUNT);
             await mogulOrganisationInstance.from(INVESTOR).invest(INVESTMENT_AMOUNT, {
                 gasLimit: 300000
             });
+        });
+
+        it('should send correct dai amount to the mogul bank', async () => {
 
             const EXPECTED_BANK_BALANCE = '800000000000000000'; // 0.8 ETH
             let bankBalance = await mogulDAIInstance.balanceOf(MOGUL_BANK);
             assert(bankBalance.eq(EXPECTED_BANK_BALANCE), 'Incorrect bank balance after investment');
+        });
 
+        it('should send correct amount to the reserve', async () => {
 
             const EXPECTED_RESERVE_BALANCE = '1200000000000000000'; // 1.2 ETH (Unlocking + investment)
             let reserveBalance = await mogulDAIInstance.balanceOf(mogulOrganisationInstance.contractAddress);
             assert(reserveBalance.eq(EXPECTED_RESERVE_BALANCE), 'Incorrect reserve balance after investment');
+        });
 
-
+        it('should send corect amount mogul tokens to the investor', async () => {
             // normalization is because of 18 decimals of mogul token
-            const normalization = 1000000000000000000;
             const EXPECTED_INVESTOR_MOGUL_BALANCE = (buyCalc(INITIAL_MOGUL_SUPPLY, UNLOCK_AMOUNT, INVESTMENT_AMOUNT) / normalization).toFixed(9);
             let investorMogulBalance = await mogulTokenInstance.balanceOf(INVESTOR.address);
             investorMogulBalance = (Number(investorMogulBalance.toString()) / normalization).toFixed(9);
 
             assert.strictEqual(investorMogulBalance, EXPECTED_INVESTOR_MOGUL_BALANCE, 'Incorrect investor mogul balance after investment');
+        });
 
-
+        it('should send correct movie tokens to the investor', async () => {
             // 1:10 = mogul:movie token
+            let investorMogulBalance = await mogulTokenInstance.balanceOf(INVESTOR.address);
             let EXPECTED_INVESTOR_MOVIE_BALANCE = (investorMogulBalance * 10).toFixed(8);
             let investorMovieBalance = await movieTokenInstance.balanceOf(INVESTOR.address);
             investorMovieBalance = (Number(investorMovieBalance.toString()) / normalization).toFixed(8);
 
             assert.strictEqual(investorMovieBalance, EXPECTED_INVESTOR_MOVIE_BALANCE, 'Incorrect investor movie balance after investment');
+        });
 
-
+        it('Should receive correct invest amount', async () => {
             // EXPECTED_INVESTMENTS_AMOUNT = unlocking amount + investment amount
             const EXPECTED_INVESTMENTS_AMOUNT = '2000000000000000000'; // 2 ETH
             let totalDAIInvestments = await mogulOrganisationInstance.totalDAIInvestments();
@@ -121,8 +117,10 @@ describe('Mogul Organisation Contract', () => {
 
         it('Should throw if one tries to invest in non-unlocked organisation', async () => {
             await deployContracts();
-            await mintDAI(INVESTOR.address, ONE_ETH);
-            await approveDAI(INVESTOR, mogulOrganisationInstance.contractAddress, ONE_ETH);
+            // await mintDAI(INVESTOR.address, ONE_ETH);
+            await contractInitializator.mintDAI(mogulDAIInstance,INVESTOR.address, ONE_ETH);
+            await contractInitializator.approveDAI(mogulDAIInstance, INVESTOR, mogulOrganisationInstance.contractAddress, ONE_ETH);
+            // await approveDAI(INVESTOR, mogulOrganisationInstance.contractAddress, ONE_ETH);
 
             await assert.revert(mogulOrganisationInstance.from(INVESTOR).invest(ONE_ETH), 'An investment has been processed for a non-unlocked organisation');
         });

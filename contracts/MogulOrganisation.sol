@@ -66,13 +66,12 @@ contract MogulOrganisation {
     function revokeInvestment(uint256 _amountMGL) public {
         require(mogulToken.allowance(msg.sender, address(this)) >= _amountMGL, "Investor wants to withdraw his MGL investment");
         
-        uint256 daiToReturn = bondingMath.calcTokenSell(mogulToken.totalSupply(), daiReserve, _amountMGL);
+        uint256 daiToReturn = bondingMath.calcTokenSell(totalDAIInvestments, mogulToken.totalSupply(), _amountMGL);
         
-        daiReserve = daiReserve.sub(daiToReturn);
-        daiSupply = daiSupply.sub(daiToReturn);
-
+//        daiReserve = daiReserve.sub(daiToReturn);
         mogulDAI.transfer(msg.sender, daiToReturn);
-        Withdraw(msg.sender, daiToReturn);
+        totalDAIInvestments = totalDAIInvestments.sub(daiToReturn);
+        emit Withdraw(msg.sender, daiToReturn);
     }
     
     function calcRelevantMGLForDAI(uint256 _daiAmount) public view returns(uint256) {
