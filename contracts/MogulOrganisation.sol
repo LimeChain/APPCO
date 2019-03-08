@@ -65,7 +65,8 @@ contract MogulOrganisation {
     
     function calcRelevantMGLForDAI(uint256 _daiAmount) public view returns(uint256) {
         uint256 tokensAfterPurchase = bondingMath.calcPurchase(mogulToken.totalSupply(), totalDAIInvestments, _daiAmount);
-        return tokensAfterPurchase.sub(mogulToken.totalSupply());
+        // return tokensAfterPurchase.sub(mogulToken.totalSupply());
+        return tokensAfterPurchase;
     }
 
     function unlockOrganisation(uint256 _unlockAmount) public {

@@ -3,8 +3,12 @@ def tokens_sqrt(num: uint256) -> uint256:
     if num == 0:
         return 0
     
-    normalization: decimal = 1000000000000000000.0
-    normalizedNumber: decimal = convert(num, decimal) / normalization
+
+    # Divide by 10000000000 gives better approximation because of rounding
+    normalization: decimal = 10000000000.0
+
+    tokenDecimals: decimal = 1000000000000000000.0
+    normalizedNumber: decimal = (convert(num, decimal) / tokenDecimals) * normalization
 
     assert normalizedNumber >= 1.0
     
@@ -18,6 +22,7 @@ def tokens_sqrt(num: uint256) -> uint256:
         root = rootCalculations
         rootCalculations = (normalizedNumber / root + root) / 2.0
     
-    root *= normalization
+    # Zero rounding issues 
+    root *= normalization * 1000.0
 
     return convert(root, uint256)

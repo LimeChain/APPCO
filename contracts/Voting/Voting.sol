@@ -70,10 +70,10 @@ contract Voting {
     }
 
     // Rating is calculated as => sqrt(voter tokens balance) => 1 token = 1 rating; 9 tokens = 3 rating
-    function __calculateRatingByTokens(uint256 tokens) private returns(uint256){
+    function __calculateRatingByTokens(uint256 tokens) public view returns(uint256){
         // Call a Vyper SQRT contract in order to work with decimals in sqrt
-        (bool success, bytes  memory data) = sqrtInstance.staticcall(abi.encodeWithSignature("tokens_sqrt(uint256)", tokens));
-        require(success);
+        (bool success, bytes  memory data) = sqrtInstance.staticcall(abi.encodeWithSignature("sqrt_uint256(uint256,int128)", tokens, 18));
+        require(success, "Throw");
 
         // Convert bytes in to uint256
         uint rating;

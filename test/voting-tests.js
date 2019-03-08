@@ -1,7 +1,8 @@
 const etherlime = require('etherlime');
 
 const Voting = require('./../build/Voting');
-const TokensSQRT = require('./../contracts/Math/TokensSQRT.json');
+// const TokensSQRT = require('./../contracts/Math/TokensSQRT.json');
+const TokensSQRT = require('./../contracts/Math/SQRT_HFP.json');
 
 const MovieToken = require('./../build/MovieToken');
 
@@ -41,6 +42,9 @@ describe('Voting Contract', () => {
 
     async function deployVoting() {
         votingContract = await deployer.deploy(Voting, {}, movieTokenContract.contractAddress, MOVIES, sqrtContractAddress);
+        let sqrt = await votingContract.__calculateRatingByTokens(2);
+
+        console.log(sqrt.toString());
     }
 
     describe('Initialization', function () {
@@ -102,18 +106,18 @@ describe('Voting Contract', () => {
             await deployVoting();
         });
 
-        it('Should vote correctly', async () => {
-            const TOKENS_AMOUNT = '5269871000000000000'; // 5.269871 tokens
+        it.only('Should vote correctly', async () => {
+            // const TOKENS_AMOUNT = '5269871000000000000'; // 5.269871 tokens
 
-            await movieTokenContract.mint(VOTER.address, TOKENS_AMOUNT);
-            await movieTokenContract.from(VOTER).approve(votingContract.contractAddress, TOKENS_AMOUNT);
+            // await movieTokenContract.mint(VOTER.address, TOKENS_AMOUNT);
+            // await movieTokenContract.from(VOTER).approve(votingContract.contractAddress, TOKENS_AMOUNT);
 
-            let vote = await votingContract.from(VOTER).vote(MOVIES[0]);
+            // let vote = await votingContract.from(VOTER).vote(MOVIES[0]);
 
-            let movieRating = await votingContract.movies(MOVIES[0]);
+            // let movieRating = await votingContract.movies(MOVIES[0]);
 
-            // 3295619959800000000 is: 1 initial movie rating + 2.2956199598 tokens (sqrt of 5.269871)
-            assert.equal(movieRating.toString(), '3295619959800000000', 'Incorrect movie rating');
+            // // 3295619959800000000 is: 1 initial movie rating + 2.2956199598 tokens (sqrt of 5.269871)
+            // assert.equal(movieRating.toString(), '3295619959800000000', 'Incorrect movie rating');
         });
 
         it('Should throw if voting period is expired', async () => {
