@@ -73,7 +73,7 @@ describe('Voting Contract', () => {
             assert(votingExpirationDate.eq(expectedExpirationDate), 'Expiration date is not correct');
         });
 
-        it('Should throw if one provide empty addresses', async () => {
+        it('Should throw if one provides empty addresses', async () => {
             await deployTokensSQRT();
             await deployMovieToken();
 
