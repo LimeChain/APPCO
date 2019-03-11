@@ -42,7 +42,6 @@ let deployTokensSQRT = async (deployerWallet) => {
 
 let getMogulToken = async (mogulOrganisationInstance) => {
     return await mogulOrganisationInstance.mogulToken();
-    // return (new ethers.Contract(mogulTokenAddress, MogulToken.abi, deployerWallet));
 };
 
 let deployBondingMath = async () => {
@@ -63,11 +62,9 @@ let approveDAI = async (mogulDAIInstance, approver, to, amount) => {
 };
 
 module.exports = {
-    deployTokensSQRT,
     getMogulToken,
     mintDAI,
     approveDAI,
-    deployBondingMath,
     deployMogulOrganization,
     deployMglDai,
     addMovieTokenMinter,

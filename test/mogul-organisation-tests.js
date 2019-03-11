@@ -37,7 +37,10 @@ describe('Mogul Organisation Contract', () => {
             mogulOrganisationInstance = await contractInitializator.deployMogulOrganization(mogulDAIInstance, movieTokenInstance);
 
             let mogulTokenAddr = await contractInitializator.getMogulToken(mogulOrganisationInstance);
-            mogulTokenInstance = new ethers.Contract(mogulTokenAddr, MogulToken.abi, OWNER.provider);
+
+            // mogulTokenInstance = etherlime.ContractAt(MogulToken.abi, mogulTokenAddr, OWNER, OWNER.provider);
+            let mogulTokenContract = new ethers.Contract(mogulTokenAddr, MogulToken.abi, INVESTOR.provider);
+            mogulTokenInstance = mogulTokenContract.connect(INVESTOR);
 
             // Mint and Approve 1 ETH in order to unlock the organization
             await contractInitializator.mintDAI(mogulDAIInstance, OWNER.address, ONE_ETH);
@@ -53,23 +56,25 @@ describe('Mogul Organisation Contract', () => {
 
         describe('Unlocking', function () {
 
-            beforeEach(async () => {
-                await mogulOrganisationInstance.unlockOrganisation(UNLOCK_AMOUNT);
-            });
-
             it('Should unlock the organisation', async () => {
+                await mogulOrganisationInstance.unlockOrganisation(UNLOCK_AMOUNT);
                 let organisationBalance = await mogulDAIInstance.balanceOf(mogulOrganisationInstance.contractAddress);
                 assert(organisationBalance.eq(ONE_ETH), 'Organisation balance is incorrect after unlocking');
             });
 
             it('Should throw on re-unlocking', async () => {
+                await mogulOrganisationInstance.unlockOrganisation(UNLOCK_AMOUNT);
                 await assert.revert(mogulOrganisationInstance.unlockOrganisation(ONE_ETH), 'Re-unlocking of an organisation did not throw');
             });
 
             it('Should throw if an unlocker tries to unlock with unapproved DAI amount', async () => {
+                await mogulOrganisationInstance.unlockOrganisation(UNLOCK_AMOUNT);
                 await assert.revert(mogulOrganisationInstance.unlockOrganisation(TWO_ETH), 'Organisation has been unlocked with unapproved DAI amount');
             });
 
+            it('Should throw if one tries to invest in non-unlocked organisation', async () => {
+                await assert.revert(mogulOrganisationInstance.from(INVESTOR).invest(ONE_ETH), 'An investment has been processed for a non-unlocked organisation');
+            });
         });
 
         describe('Investing', function () {
@@ -118,22 +123,75 @@ describe('Mogul Organisation Contract', () => {
                 let totalDAIInvestments = await mogulOrganisationInstance.totalDAIInvestments();
                 assert(totalDAIInvestments.eq(EXPECTED_INVESTMENTS_AMOUNT), 'Incorrect investments amount after investment');
             });
-        });
-
-        describe('Caching errors', function () {
-            it('Should throw if one tries to invest in non-unlocked organisation', async () => {
-                // await mintDAI(INVESTOR.address, ONE_ETH);
-                await contractInitializator.mintDAI(mogulDAIInstance,INVESTOR.address, ONE_ETH);
-                await contractInitializator.approveDAI(mogulDAIInstance, INVESTOR, mogulOrganisationInstance.contractAddress, ONE_ETH);
-                // await approveDAI(INVESTOR, mogulOrganisationInstance.contractAddress, ONE_ETH);
-
-                await assert.revert(mogulOrganisationInstance.from(INVESTOR).invest(ONE_ETH), 'An investment has been processed for a non-unlocked organisation');
-            });
 
             it('Should throw if an investor tries to invest with unapproved DAI amount', async () => {
-                await assert.revert(mogulOrganisationInstance.from(INVESTOR).invest(ONE_ETH), 'An investment has been processed with unapproved DAI amount');
+                let investorWithoutDAI = accounts[3].signer;
+                await assert.revert(mogulOrganisationInstance.from(investorWithoutDAI).invest(ONE_ETH), 'An investment has been processed with unapproved DAI amount');
+            });
+
+        });
+
+        describe('Revoke Investment', function () {
+
+            beforeEach(async () => {
+                await mogulOrganisationInstance.unlockOrganisation(UNLOCK_AMOUNT);
+                await mogulOrganisationInstance.from(INVESTOR).invest(INVESTMENT_AMOUNT, {
+                    gasLimit: 300000
+                });
+            });
+
+            it('Should sell MGL Tokens for ~ 80% less of their buying price', async () => {
+                let normalizer = 1000000000000000000;
+                let mglTokens = await mogulTokenInstance.balanceOf(INVESTOR.address);
+
+                let contBal = await mogulTokenInstance.totalSupply();
+                let resBal = await mogulOrganisationInstance.daiReserve();
+
+                let expectedDai = sellCalc(contBal, resBal, mglTokens);
+
+                await mogulTokenInstance.approve(mogulOrganisationInstance.contractAddress, mglTokens);
+                await mogulOrganisationInstance.from(INVESTOR).revokeInvestment(mglTokens);
+
+                let daiBalance = await mogulDAIInstance.balanceOf(INVESTOR.address);
+
+                let normDaiBalance = (daiBalance / normalizer).toFixed(6);
+                let normExpectedBalance = (expectedDai / normalizer).toFixed(6);
+
+                assert.strictEqual(normDaiBalance, normExpectedBalance);
+            });
+
+            it('Should sell MGL Tokens on profit after some investments', async () => {
+                let normalizer = 1000000000000000000;
+                let mglTokens = await mogulTokenInstance.balanceOf(INVESTOR.address);
+
+                let randomInvestment = "40000000000000000000";
+                await contractInitializator.mintDAI(mogulDAIInstance, OWNER.address, randomInvestment);
+                await mogulDAIInstance.from(OWNER).approve(mogulOrganisationInstance.contractAddress, randomInvestment);
+
+                await mogulOrganisationInstance.from(OWNER).invest(randomInvestment, {
+                    gasLimit: 300000
+                });
+
+                await mogulTokenInstance.approve(mogulOrganisationInstance.contractAddress, mglTokens);
+                await mogulOrganisationInstance.from(INVESTOR).revokeInvestment(mglTokens);
+
+                let daiBalance = await mogulDAIInstance.balanceOf(INVESTOR.address);
+
+                let normDaiBalance = (daiBalance / normalizer).toFixed(6);
+
+                assert(1 <= normDaiBalance, "tokens are not sold on profit");
+            });
+
+            it('Should revert if one tries sell unapproved tokens', async () => {
+                let tokens = "414213562299999999";
+                await assert.revert(mogulOrganisationInstance.from(INVESTOR).revokeInvestment(tokens));
+
+            });
+
+            it("Should revert if one tries sell tokens that he doesn't have", async () => {
+                let tokens = "414213562299999999";
+                await assert.revert(mogulOrganisationInstance.from(OWNER).revokeInvestment(tokens));
             });
         })
     });
-
 });

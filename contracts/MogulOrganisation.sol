@@ -67,7 +67,7 @@ contract MogulOrganisation {
     }
     
     function revokeInvestment(uint256 _amountMGL) public {
-        require(mogulToken.allowance(msg.sender, address(this)) >= _amountMGL, "Investor wants to withdraw more MGL than he have");
+        require(mogulToken.allowance(msg.sender, address(this)) >= _amountMGL, "Investor wants to withdraw MGL without allowance");
         
         uint256 daiToReturn = bondingMath.calcTokenSell(mogulToken.totalSupply(), daiReserve, _amountMGL);
         
