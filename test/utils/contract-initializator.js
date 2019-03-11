@@ -2,7 +2,6 @@ const etherlime = require('etherlime');
 
 const MogulDAI = require('./../../build/MogulDAI');
 const MovieToken = require('./../../build/MovieToken');
-const MogulToken = require('./../../build/MogulToken');
 
 const SQRT = require('./../../contracts/Math/SQRT.json');
 const BondingMathematics = require('./../../build/BondingMathematics');
@@ -14,14 +13,10 @@ const MOGUL_BANK = accounts[9].signer.address;
 
 const deployer = new etherlime.EtherlimeGanacheDeployer();
 
-let mglDai;
-let movieTokenInstance;
 
-let deployMogulOrganization = async (mglDai) => {
+let deployMogulOrganization = async (mglDai, movieTokenInstance) => {
 
     let bondingMathematicsInstance = await deployBondingMath();
-
-    movieTokenInstance = await deployer.deploy(MovieToken);
 
     return (await deployer.deploy(MogulOrganisation, {},
         bondingMathematicsInstance.contractAddress,
@@ -30,7 +25,11 @@ let deployMogulOrganization = async (mglDai) => {
         MOGUL_BANK));
 };
 
-let addMovieTokenMinter = async (minterAddr) => {
+let deployMovieToken = async () => {
+    return (await deployer.deploy(MovieToken));
+};
+
+let addMovieTokenMinter = async (movieTokenInstance, minterAddr) => {
     await movieTokenInstance.addMinter(minterAddr);
 };
 
@@ -71,5 +70,6 @@ module.exports = {
     deployBondingMath,
     deployMogulOrganization,
     deployMglDai,
-    addMovieTokenMinter
+    addMovieTokenMinter,
+    deployMovieToken
 };

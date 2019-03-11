@@ -22,8 +22,6 @@ contract MogulOrganisation {
     uint256 public totalDAIInvestments = 0;
     uint256 public daiReserve = 0;
     
-    uint public temp = 0;
-    
     uint256 constant public MOVIE_TO_MGL_RATE = 10; // 1 Mogul Token -> 10 Movie Tokens (Utility tokens)
     uint256 constant public DAI_RESERVE_REMAINDER = 5; // 20%
     uint256 constant public INITIAL_MGLTOKEN_SUPPLY = 1000000000000000000; // 1 Mogul Token
@@ -60,20 +58,19 @@ contract MogulOrganisation {
         mogulDAI.transferFrom(msg.sender, address(mogulBank), _daiAmount.sub(reserveDAIAmount));
 
         mogulToken.mint(msg.sender, mglTokensToMint);
-//        movieToken.mint(msg.sender, mglTokensToMint.mul(MOVIE_TO_MGL_RATE));
+        movieToken.mint(msg.sender, mglTokensToMint.mul(MOVIE_TO_MGL_RATE));
 
         totalDAIInvestments = totalDAIInvestments.add(_daiAmount);
         daiReserve = daiReserve.add(reserveDAIAmount);
+        
         emit Invest(msg.sender, _daiAmount);
     }
     
     function revokeInvestment(uint256 _amountMGL) public {
-        require(mogulToken.allowance(msg.sender, address(this)) >= _amountMGL, "Investor wants to withdraw his MGL investment");
+        require(mogulToken.allowance(msg.sender, address(this)) >= _amountMGL, "Investor wants to withdraw more MGL than he have");
         
-        uint256 reserveBalance = mogulDAI.balanceOf(address(this));
         uint256 daiToReturn = bondingMath.calcTokenSell(mogulToken.totalSupply(), daiReserve, _amountMGL);
         
-        temp = daiToReturn;
         mogulDAI.transfer(msg.sender, daiToReturn);
         totalDAIInvestments = totalDAIInvestments.sub(daiToReturn);
         
@@ -94,9 +91,10 @@ contract MogulOrganisation {
         require(mogulDAI.allowance(msg.sender, address(this)) >= _unlockAmount, "Unlocker tries to unlock with unapproved DAI amount");
 
         mogulDAI.transferFrom(msg.sender, address(this), _unlockAmount);
+        
         daiReserve = _unlockAmount.div(DAI_RESERVE_REMAINDER);
-
         totalDAIInvestments = _unlockAmount;
+        
         emit UnlockOrganisation(msg.sender, _unlockAmount);
     }
 }
