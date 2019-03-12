@@ -141,23 +141,22 @@ describe('Mogul Organisation Contract', () => {
             });
 
             it('Should sell MGL Tokens for ~ 80% less of their buying price', async () => {
-                let normalizer = 1000000000000000000;
                 let mglTokens = await mogulTokenInstance.balanceOf(INVESTOR.address);
 
-                let contBal = await mogulTokenInstance.totalSupply();
-                let resBal = await mogulOrganisationInstance.daiReserve();
+                let organisationMogulBalance = await mogulTokenInstance.totalSupply();
+                let reserveBalance = await mogulOrganisationInstance.daiReserve();
 
-                let expectedDai = sellCalc(contBal, resBal, mglTokens);
+                let expectedDai = sellCalc(organisationMogulBalance, reserveBalance, mglTokens);
 
                 await mogulTokenInstance.approve(mogulOrganisationInstance.contractAddress, mglTokens);
                 await mogulOrganisationInstance.from(INVESTOR).revokeInvestment(mglTokens);
 
                 let daiBalance = await mogulDAIInstance.balanceOf(INVESTOR.address);
 
-                let normDaiBalance = (daiBalance / normalizer).toFixed(6);
-                let normExpectedBalance = (expectedDai / normalizer).toFixed(6);
+                let normalizedDAIBalance = (daiBalance / normalization).toFixed(6);
+                let expectedBalance = (expectedDai / normalization).toFixed(6);
 
-                assert.strictEqual(normDaiBalance, normExpectedBalance);
+                assert.strictEqual(normalizedDAIBalance, expectedBalance);
             });
 
             it('Should sell MGL Tokens on profit after some investments', async () => {
@@ -181,13 +180,13 @@ describe('Mogul Organisation Contract', () => {
                 assert(1 <= normDaiBalance, "tokens are not sold on profit");
             });
 
-            it('Should revert if one tries sell unapproved tokens', async () => {
+            it('Should revert if one tries to sell unapproved tokens', async () => {
                 let tokens = "414213562299999999";
                 await assert.revert(mogulOrganisationInstance.from(INVESTOR).revokeInvestment(tokens));
 
             });
 
-            it("Should revert if one tries sell tokens that he doesn't have", async () => {
+            it("Should revert if one tries to sell tokens that he doesn't have", async () => {
                 let tokens = "414213562299999999";
                 await assert.revert(mogulOrganisationInstance.from(OWNER).revokeInvestment(tokens));
             });
