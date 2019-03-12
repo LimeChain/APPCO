@@ -12,7 +12,7 @@ contract Voting {
     uint256 public constant MAX_MOVIES_COUNT = 5;
     // This duration is only for POC purpose
     uint256 public constant VOTING_DURATION = 10000 days;
-    uint256 public constant MINIMUM_TOKENS_AMOUNT_FOR_VOTING = 10^18;
+    uint256 public constant MINIMUM_TOKENS_AMOUNT_FOR_VOTING = 10**18; // 1 token
 
     uint256 public expirationDate;
 
@@ -66,7 +66,7 @@ contract Voting {
         movies[movie] = movies[movie].add(rating);
 
         voters[msg.sender].title = movie;
-        voters[msg.sender].rating.add(voterTokensBalance);
+        voters[msg.sender].rating = voterTokensBalance;
 
         emit Vote(msg.sender, movie, voterTokensBalance, rating);
     }

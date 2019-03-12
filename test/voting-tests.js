@@ -5,7 +5,9 @@ const TokensSQRT = require('./../contracts/Math/TokensSQRT.json');
 
 const MovieToken = require('./../build/MovieToken');
 
-describe('Voting Contract', () => {
+describe('Voting Contract', function () {
+
+    this.timeout(20000);
 
     const OWNER = accounts[0].signer;
     const VOTER = accounts[1].signer;
@@ -108,7 +110,7 @@ describe('Voting Contract', () => {
             await movieTokenContract.mint(VOTER.address, TOKENS_AMOUNT);
             await movieTokenContract.from(VOTER).approve(votingContract.contractAddress, TOKENS_AMOUNT);
 
-            let vote = await votingContract.from(VOTER).vote(MOVIES[0]);
+            await votingContract.from(VOTER).vote(MOVIES[0]);
 
             let movieRating = await votingContract.movies(MOVIES[0]);
 
