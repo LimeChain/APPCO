@@ -44,7 +44,7 @@ let deployTokensSQRT = async (deployerWallet) => {
 let getMogulToken = async (mogulOrganisationInstance, wallet) => {
     let mogulTokenAddress = await mogulOrganisationInstance.mogulToken();
     let mogulTokenContract = new ethers.Contract(mogulTokenAddress, MogulToken.abi, deployerWallet.provider);
-     return mogulTokenContract.connect(wallet);
+    return mogulTokenContract.connect(wallet);
 
 };
 
