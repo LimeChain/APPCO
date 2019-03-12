@@ -38,7 +38,7 @@ let deployTokensSQRT = async (deployerWallet) => {
     let tx = await deployerWallet.sendTransaction({
         data: SQRT.bytecode
     });
-    return (await deployerWallet.provider.getTransactionReceipt(tx.hash)).contractAddress;
+    return deployerWallet.provider.getTransactionReceipt(tx.hash);
 };
 
 let getMogulToken = async (mogulOrganisationInstance, wallet) => {
@@ -50,7 +50,7 @@ let getMogulToken = async (mogulOrganisationInstance, wallet) => {
 
 let deployBondingMath = async () => {
     let sqrtContractAddress = await deployTokensSQRT(deployerWallet);
-    return deployer.deploy(BondingMathematics, {}, sqrtContractAddress);
+    return deployer.deploy(BondingMathematics, {}, sqrtContractAddress.contractAddress);
 };
 
 let deployMglDai = async () => {
