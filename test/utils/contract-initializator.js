@@ -18,15 +18,15 @@ let deployMogulOrganization = async (mglDai, movieTokenInstance) => {
 
     let bondingMathematicsInstance = await deployBondingMath();
 
-    return (await deployer.deploy(MogulOrganisation, {},
+    return deployer.deploy(MogulOrganisation, {},
         bondingMathematicsInstance.contractAddress,
         mglDai.contractAddress,
         movieTokenInstance.contractAddress,
-        MOGUL_BANK));
+        MOGUL_BANK);
 };
 
 let deployMovieToken = async () => {
-    return (await deployer.deploy(MovieToken));
+    return deployer.deploy(MovieToken);
 };
 
 let addMovieTokenMinter = async (movieTokenInstance, minterAddr) => {
@@ -46,11 +46,11 @@ let getMogulToken = async (mogulOrganisationInstance) => {
 
 let deployBondingMath = async () => {
     let sqrtContractAddress = await deployTokensSQRT(deployerWallet);
-    return (await deployer.deploy(BondingMathematics, {}, sqrtContractAddress));
+    return deployer.deploy(BondingMathematics, {}, sqrtContractAddress);
 };
 
 let deployMglDai = async () => {
-    return (await deployer.deploy(MogulDAI));
+    return deployer.deploy(MogulDAI);
 };
 
 let mintDAI = async (mogulDAIInstance, to, amount) => {

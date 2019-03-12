@@ -28,7 +28,7 @@ describe('Mogul Organisation Contract', () => {
     let mogulOrganisationInstance;
 
 
-    describe('Deploing', function () {
+    describe('Continuous Organisation Contract', function () {
 
         beforeEach(async () => {
             mogulDAIInstance = await contractInitializator.deployMglDai();
@@ -77,7 +77,7 @@ describe('Mogul Organisation Contract', () => {
             });
         });
 
-        describe('Investing', function () {
+        describe('Investment', function () {
             beforeEach(async () => {
                 await mogulOrganisationInstance.unlockOrganisation(UNLOCK_AMOUNT);
                 await mogulOrganisationInstance.from(INVESTOR).invest(INVESTMENT_AMOUNT, {
@@ -161,7 +161,6 @@ describe('Mogul Organisation Contract', () => {
             });
 
             it('Should sell MGL Tokens on profit after some investments', async () => {
-                let normalizer = 1000000000000000000;
                 let mglTokens = await mogulTokenInstance.balanceOf(INVESTOR.address);
 
                 let randomInvestment = "40000000000000000000";
@@ -177,7 +176,7 @@ describe('Mogul Organisation Contract', () => {
 
                 let daiBalance = await mogulDAIInstance.balanceOf(INVESTOR.address);
 
-                let normDaiBalance = (daiBalance / normalizer).toFixed(6);
+                let normDaiBalance = (daiBalance / normalization).toFixed(6);
 
                 assert(1 <= normDaiBalance, "tokens are not sold on profit");
             });
@@ -193,5 +192,6 @@ describe('Mogul Organisation Contract', () => {
                 await assert.revert(mogulOrganisationInstance.from(OWNER).revokeInvestment(tokens));
             });
         })
+
     });
 });
