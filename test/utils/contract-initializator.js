@@ -2,6 +2,7 @@ const etherlime = require('etherlime');
 
 const MogulDAI = require('./../../build/MogulDAI');
 const MovieToken = require('./../../build/MovieToken');
+const MogulToken = require('./../../build/MogulToken');
 
 const SQRT = require('./../../contracts/Math/SQRT.json');
 const BondingMathematics = require('./../../build/BondingMathematics');
@@ -40,8 +41,11 @@ let deployTokensSQRT = async (deployerWallet) => {
     return (await deployerWallet.provider.getTransactionReceipt(tx.hash)).contractAddress;
 };
 
-let getMogulToken = async (mogulOrganisationInstance) => {
-    return await mogulOrganisationInstance.mogulToken();
+let getMogulToken = async (mogulOrganisationInstance, wallet) => {
+    let mogulTokenAddress = await mogulOrganisationInstance.mogulToken();
+    let mogulTokenContract = new ethers.Contract(mogulTokenAddress, MogulToken.abi, deployerWallet.provider);
+     return mogulTokenContract.connect(wallet);
+
 };
 
 let deployBondingMath = async () => {

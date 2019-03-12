@@ -36,11 +36,7 @@ describe('Mogul Organisation Contract', () => {
 
             mogulOrganisationInstance = await contractInitializator.deployMogulOrganization(mogulDAIInstance, movieTokenInstance);
 
-            let mogulTokenAddr = await contractInitializator.getMogulToken(mogulOrganisationInstance);
-
-            // mogulTokenInstance = etherlime.ContractAt(MogulToken.abi, mogulTokenAddr, OWNER, OWNER.provider);
-            let mogulTokenContract = new ethers.Contract(mogulTokenAddr, MogulToken.abi, INVESTOR.provider);
-            mogulTokenInstance = mogulTokenContract.connect(INVESTOR);
+            mogulTokenInstance = await contractInitializator.getMogulToken(mogulOrganisationInstance, INVESTOR);
 
             // Mint and Approve 1 ETH in order to unlock the organization
             await contractInitializator.mintDAI(mogulDAIInstance, OWNER.address, ONE_ETH);
