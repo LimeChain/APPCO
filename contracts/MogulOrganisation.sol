@@ -6,6 +6,7 @@ import "./Tokens/MovieToken/MovieToken.sol";
 import "./Math/BondingMathematics.sol";
 import "./../node_modules/openzeppelin-solidity/contracts/math/SafeMath.sol";
 
+
 contract MogulOrganisation {
 
     using SafeMath for uint256;
@@ -19,17 +20,18 @@ contract MogulOrganisation {
     address public mogulBank;
 
     uint256 public totalDAIInvestments = 0;
+    uint256 public daiReserve = 0;
     
     uint256 constant public MOVIE_TO_MGL_RATE = 10; // 1 Mogul Token -> 10 Movie Tokens (Utility tokens)
     uint256 constant public DAI_RESERVE_REMAINDER = 5; // 20%
     uint256 constant public INITIAL_MGLTOKEN_SUPPLY = 1000000000000000000; // 1 Mogul Token
 
     event Invest(address investor, uint256 amount);
+    event Withdraw(address investor, uint256 amount);
     event UnlockOrganisation(address unlocker, uint256 initialAmount);
     
-    // TODO: set this address to real one. Now it's set to 9th of testrpcs
-
     constructor(address _bondingMath, address _mogulDAI, address _movieToken, address _mogulBank) public {
+        
         require(_mogulDAI != address(0), "Mogul DAI address is required");
         require(_movieToken != address(0), "Movie Token address is required");
         require(_mogulBank != address(0), "Mogul Bank address is required");
@@ -59,8 +61,24 @@ contract MogulOrganisation {
         movieToken.mint(msg.sender, mglTokensToMint.mul(MOVIE_TO_MGL_RATE));
 
         totalDAIInvestments = totalDAIInvestments.add(_daiAmount);
-
+        daiReserve = daiReserve.add(reserveDAIAmount);
+        
         emit Invest(msg.sender, _daiAmount);
+    }
+    
+    function revokeInvestment(uint256 _amountMGL) public {
+        require(mogulToken.allowance(msg.sender, address(this)) >= _amountMGL, "Investor wants to withdraw MGL without allowance");
+        
+        uint256 daiToReturn = bondingMath.calcTokenSell(mogulToken.totalSupply(), daiReserve, _amountMGL);
+        
+        mogulDAI.transfer(msg.sender, daiToReturn);
+        totalDAIInvestments = totalDAIInvestments.sub(daiToReturn);
+        
+        daiReserve = daiReserve.sub(daiToReturn);
+        
+        mogulToken.burnFrom(msg.sender, _amountMGL);
+        
+        emit Withdraw(msg.sender, daiToReturn);
     }
     
     function calcRelevantMGLForDAI(uint256 _daiAmount) public view returns(uint256) {
@@ -73,8 +91,10 @@ contract MogulOrganisation {
         require(mogulDAI.allowance(msg.sender, address(this)) >= _unlockAmount, "Unlocker tries to unlock with unapproved DAI amount");
 
         mogulDAI.transferFrom(msg.sender, address(this), _unlockAmount);
-
+        
+        daiReserve = _unlockAmount.div(DAI_RESERVE_REMAINDER);
         totalDAIInvestments = _unlockAmount;
+        
         emit UnlockOrganisation(msg.sender, _unlockAmount);
     }
 }
