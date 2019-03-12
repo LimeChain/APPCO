@@ -1,16 +1,18 @@
 pragma solidity ^0.5.3;
 
+import "./../Math/Convert.sol";
 import "./../Tokens/MovieToken/MovieToken.sol";
 import "./../../node_modules/openzeppelin-solidity/contracts/math/SafeMath.sol";
 
 contract Voting {
     
+    using Convert for bytes;
     using SafeMath for uint256;
     
     uint256 public constant MAX_MOVIES_COUNT = 5;
     // This duration is only for POC purpose
     uint256 public constant VOTING_DURATION = 10000 days;
-    uint256 public constant MINIMUM_TOKENS_AMOUNT_FOR_VOTING = 10^18;
+    uint256 public constant MINIMUM_TOKENS_AMOUNT_FOR_VOTING = 10**18; // 1 token
 
     uint256 public expirationDate;
 
@@ -64,23 +66,18 @@ contract Voting {
         movies[movie] = movies[movie].add(rating);
 
         voters[msg.sender].title = movie;
-        voters[msg.sender].rating.add(voterTokensBalance);
+        voters[msg.sender].rating = voterTokensBalance;
 
         emit Vote(msg.sender, movie, voterTokensBalance, rating);
     }
 
     // Rating is calculated as => sqrt(voter tokens balance) => 1 token = 1 rating; 9 tokens = 3 rating
-    function __calculateRatingByTokens(uint256 tokens) private returns(uint256){
+    function __calculateRatingByTokens(uint256 tokens) private view returns(uint256){
         // Call a Vyper SQRT contract in order to work with decimals in sqrt
         (bool success, bytes  memory data) = sqrtInstance.staticcall(abi.encodeWithSignature("tokens_sqrt(uint256)", tokens));
         require(success);
 
-        // Convert bytes in to uint256
-        uint rating;
-        assembly {
-            rating := mload(add(data, add(0x20, 0)))
-        }
-        
+        uint rating = data.toUint256();
         return rating;
     }
 }
