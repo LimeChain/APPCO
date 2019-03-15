@@ -19,13 +19,14 @@ contract Voting {
     address public sqrtInstance;
     MovieToken public movieTokenInstance;
 
-    struct Movie {
+    struct VoterMovie {
         bytes32 title;
+        uint256 tokens;
         uint256 rating;
     }
 
-     // Voter => Movie
-    mapping(address => Movie) public voters;
+     // Voter => VoterMovie
+    mapping(address => VoterMovie) public voters;
 
     // Movie => rating (Sum)
     mapping(bytes32 => uint256) public movies;
@@ -54,7 +55,7 @@ contract Voting {
     }
 
     function vote(bytes32 movie) public whenInLive {
-        require(voters[msg.sender].title == 0x0, "Voter can only vote for one movie per round");
+        require(voters[msg.sender].title == 0x0 || voters[msg.sender].title == movie, "Voter can only vote for one movie per round");
 
         uint256 voterTokensBalance = movieTokenInstance.balanceOf(msg.sender);
         require(voterTokensBalance >= MINIMUM_TOKENS_AMOUNT_FOR_VOTING, "Voter should have at least 1 movie token in order to vote");
@@ -62,13 +63,16 @@ contract Voting {
  
         movieTokenInstance.transferFrom(msg.sender, address(this), voterTokensBalance);
 
-        uint256 rating = __calculateRatingByTokens(voterTokensBalance);
-        movies[movie] = movies[movie].add(rating);
+        uint256 totalRating = __calculateRatingByTokens(voters[msg.sender].tokens.add(voterTokensBalance));
+        uint256 additionalRating = totalRating.sub(voters[msg.sender].rating); 
+
+        movies[movie] = movies[movie].add(additionalRating);
 
         voters[msg.sender].title = movie;
-        voters[msg.sender].rating = voterTokensBalance;
+        voters[msg.sender].rating = voters[msg.sender].rating.add(additionalRating);
+        voters[msg.sender].tokens = voters[msg.sender].tokens.add(voterTokensBalance);
 
-        emit Vote(msg.sender, movie, voterTokensBalance, rating);
+        emit Vote(msg.sender, movie, voterTokensBalance, additionalRating);
     }
 
     // Rating is calculated as => sqrt(voter tokens balance) => 1 token = 1 rating; 9 tokens = 3 rating
