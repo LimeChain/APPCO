@@ -116,6 +116,37 @@ describe('Voting Contract', function () {
 
             // 3295619959800000000 is: 1 initial movie rating + 2.2956199598 tokens (sqrt of 5.269871)
             assert.equal(movieRating.toString(), '3295619959800000000', 'Incorrect movie rating');
+
+            let voterStat = await votingContract.voters(VOTER.address);
+            assert.equal(voterStat.rating.toString(), '2295619959800000000', 'Incorrect voter rating');
+            assert.equal(voterStat.tokens.toString(), '5269871000000000000', 'Incorrect voter tokens');
+        });
+
+        it('Should vote correctly when one tries to vote one more time', async () => {
+            const TOKENS_AMOUNT_FIRST_VOTE = '9000000000000000000'; // 9 tokens -> 9 tokens = 3 votes
+            const TOKENS_AMOUNT_SECOND_VOTE = '7000000000000000000'; // 7 tokens -> 7 tokens = 1 vote
+
+            // First vote
+            await movieTokenContract.mint(VOTER.address, TOKENS_AMOUNT_FIRST_VOTE);
+            await movieTokenContract.from(VOTER).approve(votingContract.contractAddress, TOKENS_AMOUNT_FIRST_VOTE);
+
+            await votingContract.from(VOTER).vote(MOVIES[0]);
+
+            let movieRating = await votingContract.movies(MOVIES[0]);
+            assert.equal(movieRating.toString(), '4000000000000000000', 'Incorrect movie rating after first vote');
+
+            // Second vote
+            await movieTokenContract.mint(VOTER.address, TOKENS_AMOUNT_SECOND_VOTE);
+            await movieTokenContract.from(VOTER).approve(votingContract.contractAddress, TOKENS_AMOUNT_SECOND_VOTE);
+
+            await votingContract.from(VOTER).vote(MOVIES[0]);
+
+            movieRating = await votingContract.movies(MOVIES[0]);
+            assert.equal(movieRating.toString(), '5000000000000000000', 'Incorrect movie rating after second vote');
+
+            let voterStat = await votingContract.voters(VOTER.address);
+            assert.equal(voterStat.rating.toString(), '4000000000000000000', 'Incorrect voter rating');
+            assert.equal(voterStat.tokens.toString(), '16000000000000000000', 'Incorrect voter tokens');
         });
 
         it('Should throw if voting period is expired', async () => {
