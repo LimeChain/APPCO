@@ -4,7 +4,8 @@ const etherlime = require('etherlime');
 const DAIToken = require('./../build/MogulDAI');
 const MovieToken = require('./../build/MovieToken');
 
-const Voting = require('./../build/Voting');
+const Voting = require('./../build/Voting')
+const DAIExchange = require('./../build/DAIExchange');
 const BondingMath = require('./../build/BondingMathematics');
 const MogulOrganization = require('./../build/MogulOrganisation');
 
@@ -34,6 +35,8 @@ const deploy = async (network, secret) => {
     const deployer = getDeployer(ENV.LOCAL, secret);
     const daiContract = await getDAIContract(deployer);
 
+    let daiExchangeContract = await deployDAIExchange(deployer, daiContract);
+    await daiContract.addMinter(daiExchangeContract.contractAddress);
 
     // Deploy Movie Token
     const movieTokenContractDeployed = await deployer.deploy(MovieToken, {});
@@ -65,6 +68,11 @@ let getDAIContract = async function (deployer) {
     }
 
     return new ethers.Contract(DAI_TOKEN_ADDRESS, DAIToken.abi, deployer.signer);
+}
+
+let deployDAIExchange = async function (deployer, daiToken) {
+    const exchangeContractDeployed = await deployer.deploy(DAIExchange, {}, daiToken.address);
+    return exchangeContractDeployed;
 }
 
 let deployMogulOrganization = async function (deployer, movieToken, daiToken) {

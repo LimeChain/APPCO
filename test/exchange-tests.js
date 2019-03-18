@@ -1,3 +1,4 @@
+const ethers = require('ethers');
 const etherlime = require('etherlime');
 const deployer = new etherlime.EtherlimeGanacheDeployer();
 
@@ -9,8 +10,8 @@ describe('DAI Exchange Contract', () => {
     const OWNER = accounts[0].signer;
     const EXCHANGER = accounts[1].signer;
 
-    const EXCHANGE_AMOUNT = '0xDE0B6B3A7640000'; // 1 ETH
-    const DAI_RESERVE = '1000000000000000000000'; // 1000 DAI tokens
+    // const EXCHANGE_AMOUNT = '0xDE0B6B3A7640000'; // 1 ETH
+    const EXCHANGE_AMOUNT = '1'; // 1 ETH
     const EXCHANGE_RATE = '13813'; // 1 ETH = 138.13 DAI tokens
 
     let exchangeContract;
@@ -29,14 +30,14 @@ describe('DAI Exchange Contract', () => {
     });
 
     it('Should exchange successfully', async () => {
-        await exchangeContract.from(EXCHANGER).exchange(EXCHANGE_RATE, { value: EXCHANGE_AMOUNT, gasLimit: 300000 });
+        await exchangeContract.from(EXCHANGER).exchange(EXCHANGE_RATE, { value: ethers.utils.parseEther(EXCHANGE_AMOUNT), gasLimit: 300000 });
 
         let exchangerBalance = await daiTokenContract.balanceOf(EXCHANGER.address);
         assert(exchangerBalance.div('10000000000000000').eq(EXCHANGE_RATE), 'Incorrect exchanger DAI balance');
     });
 
     it('Should withdraw ethers successfully', async () => {
-        await exchangeContract.from(EXCHANGER).exchange(EXCHANGE_RATE, { value: EXCHANGE_AMOUNT, gasLimit: 300000 });
+        await exchangeContract.from(EXCHANGER).exchange(EXCHANGE_RATE, { value: ethers.utils.parseEther(EXCHANGE_AMOUNT), gasLimit: 300000 });
 
         let ownerBalanceBeforeWithdraw = await OWNER.getBalance();
         await exchangeContract.withdrawETH({ gasLimit: 300000 });
