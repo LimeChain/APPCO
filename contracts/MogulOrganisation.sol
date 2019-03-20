@@ -54,7 +54,7 @@ contract MogulOrganisation {
 
         uint256 reserveDAIAmount = _daiAmount.div(DAI_RESERVE_REMAINDER);
         mogulDAI.transferFrom(msg.sender, address(this), reserveDAIAmount);
-        mogulDAI.transferFrom(msg.sender, mogulBank, _daiAmount.sub(reserveDAIAmount));
+        mogulDAI.transferFrom(msg.sender, address(mogulBank), _daiAmount.sub(reserveDAIAmount));
 
         mogulToken.mint(msg.sender, mglTokensToMint);
         movieToken.mint(msg.sender, mglTokensToMint.mul(MOVIE_TO_MGL_RATE));
@@ -87,7 +87,7 @@ contract MogulOrganisation {
         require(mogulDAI.allowance(msg.sender, address(this)) >= _unlockAmount, "Unlocker tries to unlock with unapproved DAI amount");
 
         mogulDAI.transferFrom(msg.sender, address(this), _unlockAmount.div(DAI_RESERVE_REMAINDER));
-        mogulDAI.transferFrom(msg.sender, mogulBank, _unlockAmount.sub(_unlockAmount.div(DAI_RESERVE_REMAINDER)));
+        mogulDAI.transferFrom(msg.sender, address(mogulBank), _unlockAmount.sub(_unlockAmount.div(DAI_RESERVE_REMAINDER)));
         
         totalDAIInvestments = _unlockAmount;
         
