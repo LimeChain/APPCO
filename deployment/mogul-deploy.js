@@ -20,12 +20,12 @@ let DAI_TOKEN_ADDRESS = '0xe0B206A30c778f8809c753844210c73D23001a96';
 const ENV = {
     LOCAL: 'LOCAL',
     TEST: 'TEST'
-}
+};
 
 const DEPLOYERS = {
     LOCAL: (secret) => { return new etherlime.EtherlimeGanacheDeployer(secret, 8545, '') },
     TEST: (secret) => { return new etherlime.InfuraPrivateKeyDeployer(secret, 'ropsten', '') }
-}
+};
 
 
 const deploy = async (network, secret) => {
@@ -33,7 +33,6 @@ const deploy = async (network, secret) => {
     // Change ENV in order to deploy on test net (Ropsten)
     const deployer = getDeployer(ENV.LOCAL, secret);
     const daiContract = await getDAIContract(deployer);
-
 
     // Deploy Movie Token
     const movieTokenContractDeployed = await deployer.deploy(MovieToken, {});
@@ -54,7 +53,7 @@ let getDeployer = function (env, secret) {
     deployer.defaultOverrides = { gasLimit: 4700000, gasPrice: 9000000000 };
 
     return deployer;
-}
+};
 
 let getDAIContract = async function (deployer) {
     if (deployer.ENV == ENV.LOCAL) {
@@ -65,7 +64,7 @@ let getDAIContract = async function (deployer) {
     }
 
     return new ethers.Contract(DAI_TOKEN_ADDRESS, DAIToken.abi, deployer.signer);
-}
+};
 
 let deployMogulOrganization = async function (deployer, movieToken, daiToken) {
 
@@ -91,7 +90,7 @@ let deployMogulOrganization = async function (deployer, movieToken, daiToken) {
     );
 
     return mogulOrganizationContractDeployed;
-}
+};
 
 let deployVoting = async function (deployer, movieToken) {
 
@@ -116,6 +115,6 @@ let deployVoting = async function (deployer, movieToken) {
     // Deploy Voting
     const votingContractDeployed = await deployer.deploy(Voting, {}, movieToken.contractAddress, MOVIES, tokenSqrtContractAddress);
     return votingContractDeployed;
-}
+};
 
 module.exports = { deploy };

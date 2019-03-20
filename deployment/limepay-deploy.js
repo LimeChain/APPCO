@@ -28,6 +28,8 @@ const deploy = async (network, secret) => {
 	// Add signer in order to process funding
 	await escrowLimePay.editSigner(dAppAdmin, true);
 
+
+
 };
 
 module.exports = { deploy };

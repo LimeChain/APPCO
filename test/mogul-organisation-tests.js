@@ -53,9 +53,10 @@ describe('Mogul Organisation Contract', () => {
         describe('Unlocking', function () {
 
             it('Should unlock the organisation', async () => {
+                let expectedBalance = "200000000000000000"; // 20% of one eth
                 await mogulOrganisationInstance.unlockOrganisation(UNLOCK_AMOUNT);
                 let organisationBalance = await mogulDAIInstance.balanceOf(mogulOrganisationInstance.contractAddress);
-                assert(organisationBalance.eq(ONE_ETH), 'Organisation balance is incorrect after unlocking');
+                assert(organisationBalance.eq(expectedBalance), 'Organisation balance is incorrect after unlocking');
             });
 
             it('Should throw on re-unlocking', async () => {
@@ -82,14 +83,14 @@ describe('Mogul Organisation Contract', () => {
             });
 
             it('should send correct dai amount to the mogul bank', async () => {
-                const EXPECTED_BANK_BALANCE = '800000000000000000'; // 0.8 ETH
+                const EXPECTED_BANK_BALANCE = '1600000000000000000'; // 1.6 ETH (0.8 from unlocking + 0.8 from investing)
                 let bankBalance = await mogulDAIInstance.balanceOf(MOGUL_BANK);
                 assert(bankBalance.eq(EXPECTED_BANK_BALANCE), 'Incorrect bank balance after investment');
             });
 
             it('should send correct dai amount to the reserve', async () => {
 
-                const EXPECTED_RESERVE_BALANCE = '1200000000000000000'; // 1.2 ETH (Unlocking + investment)
+                const EXPECTED_RESERVE_BALANCE = '400000000000000000'; // 0.4 ETH (Unlocking + investment)
                 let reserveBalance = await mogulDAIInstance.balanceOf(mogulOrganisationInstance.contractAddress);
                 assert(reserveBalance.eq(EXPECTED_RESERVE_BALANCE), 'Incorrect reserve balance after investment');
             });
@@ -140,12 +141,13 @@ describe('Mogul Organisation Contract', () => {
                 let mglTokens = await mogulTokenInstance.balanceOf(INVESTOR.address);
 
                 let organisationMogulBalance = await mogulTokenInstance.totalSupply();
-                let reserveBalance = await mogulOrganisationInstance.daiReserve();
+                let reserveBalance = await mogulDAIInstance.balanceOf(mogulOrganisationInstance.contractAddress);
 
                 let expectedDai = sellCalc(organisationMogulBalance, reserveBalance, mglTokens);
 
                 await mogulTokenInstance.approve(mogulOrganisationInstance.contractAddress, mglTokens);
                 await mogulOrganisationInstance.from(INVESTOR).revokeInvestment(mglTokens);
+
 
                 let daiBalance = await mogulDAIInstance.balanceOf(INVESTOR.address);
 

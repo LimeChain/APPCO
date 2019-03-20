@@ -20,7 +20,6 @@ contract MogulOrganisation {
     address public mogulBank;
 
     uint256 public totalDAIInvestments = 0;
-    uint256 public daiReserve = 0;
     
     uint256 constant public MOVIE_TO_MGL_RATE = 10; // 1 Mogul Token -> 10 Movie Tokens (Utility tokens)
     uint256 constant public DAI_RESERVE_REMAINDER = 5; // 20%
@@ -55,29 +54,26 @@ contract MogulOrganisation {
 
         uint256 reserveDAIAmount = _daiAmount.div(DAI_RESERVE_REMAINDER);
         mogulDAI.transferFrom(msg.sender, address(this), reserveDAIAmount);
-        mogulDAI.transferFrom(msg.sender, address(mogulBank), _daiAmount.sub(reserveDAIAmount));
+        mogulDAI.transferFrom(msg.sender, mogulBank, _daiAmount.sub(reserveDAIAmount));
 
         mogulToken.mint(msg.sender, mglTokensToMint);
         movieToken.mint(msg.sender, mglTokensToMint.mul(MOVIE_TO_MGL_RATE));
 
         totalDAIInvestments = totalDAIInvestments.add(_daiAmount);
-        daiReserve = daiReserve.add(reserveDAIAmount);
-        
+
         emit Invest(msg.sender, _daiAmount);
     }
     
     function revokeInvestment(uint256 _amountMGL) public {
         require(mogulToken.allowance(msg.sender, address(this)) >= _amountMGL, "Investor wants to withdraw MGL without allowance");
         
-        uint256 daiToReturn = bondingMath.calcTokenSell(mogulToken.totalSupply(), daiReserve, _amountMGL);
+        uint256 daiToReturn = bondingMath.calcTokenSell(mogulToken.totalSupply(), mogulDAI.balanceOf(address(this)), _amountMGL);
         
         mogulDAI.transfer(msg.sender, daiToReturn);
         totalDAIInvestments = totalDAIInvestments.sub(daiToReturn);
         
-        daiReserve = daiReserve.sub(daiToReturn);
-        
         mogulToken.burnFrom(msg.sender, _amountMGL);
-        
+
         emit Withdraw(msg.sender, daiToReturn);
     }
     
@@ -90,9 +86,9 @@ contract MogulOrganisation {
         require(totalDAIInvestments == 0, "Organization is already unlocked");
         require(mogulDAI.allowance(msg.sender, address(this)) >= _unlockAmount, "Unlocker tries to unlock with unapproved DAI amount");
 
-        mogulDAI.transferFrom(msg.sender, address(this), _unlockAmount);
+        mogulDAI.transferFrom(msg.sender, address(this), _unlockAmount.div(DAI_RESERVE_REMAINDER));
+        mogulDAI.transferFrom(msg.sender, mogulBank, _unlockAmount.sub(_unlockAmount.div(DAI_RESERVE_REMAINDER)));
         
-        daiReserve = _unlockAmount.div(DAI_RESERVE_REMAINDER);
         totalDAIInvestments = _unlockAmount;
         
         emit UnlockOrganisation(msg.sender, _unlockAmount);
