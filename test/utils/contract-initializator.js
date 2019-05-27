@@ -1,76 +1,62 @@
-const etherlime = require('etherlime');
+const etherlime = require('etherlime-lib');
 
-const MogulDAI = require('./../../build/MogulDAI');
-const MovieToken = require('./../../build/MovieToken');
-const MogulToken = require('./../../build/MogulToken');
+const CODAI = require('./../../build/CODAI');
+const COToken = require('./../../build/COToken');
 
-const SQRT = require('./../../contracts/Math/SQRT.json');
+const SQRT = require('./../../build/SQRT.json');
 const BondingMathematics = require('./../../build/BondingMathematics');
 
-const MogulOrganisation = require('./../../build/MogulOrganisation');
+const ContinuousOrganisation = require('./../../build/ContinuousOrganisation');
 
 const deployerWallet = accounts[0].signer;
-const MOGUL_BANK = accounts[9].signer.address;
+const CO_BANK = accounts[9].signer.address;
 
 const deployer = new etherlime.EtherlimeGanacheDeployer();
+deployer.setDefaultOverrides({ gasLimit: 4700000, gasPrice: 9000000000 })
 
 
-let deployMogulOrganization = async (mglDai, movieTokenInstance) => {
+let deployContinuousOrganisation = async (mglDai) => {
 
     let bondingMathematicsInstance = await deployBondingMath();
 
-    return deployer.deploy(MogulOrganisation, {},
+    return deployer.deploy(ContinuousOrganisation, {},
         bondingMathematicsInstance.contractAddress,
         mglDai.contractAddress,
-        movieTokenInstance.contractAddress,
-        MOGUL_BANK);
+        CO_BANK);
 };
 
-let deployMovieToken = async () => {
-    return deployer.deploy(MovieToken);
+let deployTokensSQRT = async () => {
+    return deployer.deploy(SQRT);
 };
 
-let addMovieTokenMinter = async (movieTokenInstance, minterAddr) => {
-    await movieTokenInstance.addMinter(minterAddr);
-};
-
-let deployTokensSQRT = async (deployerWallet) => {
-    let tx = await deployerWallet.sendTransaction({
-        data: SQRT.bytecode
-    });
-    return deployerWallet.provider.getTransactionReceipt(tx.hash);
-};
-
-let getMogulToken = async (mogulOrganisationInstance, wallet) => {
-    let mogulTokenAddress = await mogulOrganisationInstance.mogulToken();
-    let mogulTokenContract = new ethers.Contract(mogulTokenAddress, MogulToken.abi, deployerWallet.provider);
-    return mogulTokenContract.connect(wallet);
+let getCoToken = async (COInstance, wallet) => {
+    let coTokenAddress = await COInstance.coToken();
+    let coTokenContract = new ethers.Contract(coTokenAddress, COToken.abi, deployerWallet.provider);
+    return coTokenContract.connect(wallet);
 
 };
 
 let deployBondingMath = async () => {
-    let sqrtContractAddress = await deployTokensSQRT(deployerWallet);
+    let sqrtContractAddress = await deployTokensSQRT();
     return deployer.deploy(BondingMathematics, {}, sqrtContractAddress.contractAddress);
 };
 
-let deployMglDai = async () => {
-    return deployer.deploy(MogulDAI);
+let deployCODAI = async () => {
+    return deployer.deploy(CODAI);
 };
 
-let mintDAI = async (mogulDAIInstance, to, amount) => {
-    await mogulDAIInstance.mint(to, amount)
+let mintDAI = async (CODAIInstance, to, amount) => {
+    await CODAIInstance.mint(to, amount)
 };
 
-let approveDAI = async (mogulDAIInstance, approver, to, amount) => {
-    await mogulDAIInstance.from(approver).approve(to, amount)
+let approveDAI = async (CODAIInstance, approver, to, amount) => {
+    await CODAIInstance.from(approver).approve(to, amount)
 };
 
 module.exports = {
-    getMogulToken,
+    getCoToken,
     mintDAI,
     approveDAI,
-    deployMogulOrganization,
-    deployMglDai,
-    addMovieTokenMinter,
-    deployMovieToken
+    deployContinuousOrganisation,
+    deployCODAI
 };

@@ -1,7 +1,7 @@
-pragma solidity 0.5.4;
+pragma solidity ^0.5.4;
 
 import "./Convert.sol";
-import "./../../node_modules/openzeppelin-solidity/contracts/math/SafeMath.sol";
+import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 
 
 contract BondingMathematics {

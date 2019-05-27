@@ -1,9 +1,9 @@
-const etherlime = require('etherlime');
+const etherlime = require('etherlime-lib');
 
 const Voting = require('./../build/Voting');
-const TokensSQRT = require('./../contracts/Math/TokensSQRT.json');
+const TokensSQRT = require('./../build/TokensSQRT.json');
 
-const MovieToken = require('./../build/MovieToken');
+const ERC20Mintable = require('./../build/ERC20Mintable');
 
 describe('Voting Contract', function () {
 
@@ -15,7 +15,7 @@ describe('Voting Contract', function () {
     // 10000 days for POC version
     const VOTING_DURATION = 24 * 60 * 60 * 10000;
 
-    const MOVIES = [
+    const PROPOSALS = [
         '0x4d6f766965310000000000000000000000000000000000000000000000000000', // Movie1
         '0x4d6f766965320000000000000000000000000000000000000000000000000000', // Movie2
         '0x4d6f766965330000000000000000000000000000000000000000000000000000', // Movie3
@@ -24,33 +24,30 @@ describe('Voting Contract', function () {
     ];
 
     let votingContract;
-    let movieTokenContract;
+    let ERC20MintableContract;
     let sqrtContractAddress;
 
     let deployer = new etherlime.EtherlimeGanacheDeployer();
 
-    async function deployMovieToken() {
-        movieTokenContract = await deployer.deploy(MovieToken, {});
+    async function deployERC20Mintable() {
+        ERC20MintableContract = await deployer.deploy(ERC20Mintable, {});
     }
 
     async function deployTokensSQRT() {
-        let tx = await OWNER.sendTransaction({
-            data: TokensSQRT.bytecode
-        });
 
-        sqrtContractAddress = (await OWNER.provider.getTransactionReceipt(tx.hash)).contractAddress;
+        sqrtContractAddress = (await deployer.deploy(TokensSQRT, {})).contractAddress;
     }
 
     async function deployVoting() {
-        votingContract = await deployer.deploy(Voting, {}, movieTokenContract.contractAddress, MOVIES, sqrtContractAddress);
+        votingContract = await deployer.deploy(Voting, {}, ERC20MintableContract.contractAddress, PROPOSALS, sqrtContractAddress);
     }
 
     describe('Initialization', function () {
         it('Should initialize the contract correctly', async () => {
 
-            const INITIAL_MOVIES_RATING = '1000000000000000000';
+            const INITIAL_PROPOSALS_RATING = '1000000000000000000';
 
-            await deployMovieToken();
+            await deployERC20Mintable();
             await deployTokensSQRT();
 
             let currentBlockNumber = await deployer.provider.getBlockNumber();
@@ -58,13 +55,13 @@ describe('Voting Contract', function () {
 
             await deployVoting();
 
-            for (let i = 0; i < MOVIES.length; i++) {
-                let movieInitialRating = await votingContract.movies(MOVIES[i]);
-                assert(movieInitialRating.eq(INITIAL_MOVIES_RATING), 'Incorrect movie rating');
+            for (let i = 0; i < PROPOSALS.length; i++) {
+                let movieInitialRating = await votingContract.proposals(PROPOSALS[i]);
+                assert(movieInitialRating.eq(INITIAL_PROPOSALS_RATING), 'Incorrect movie rating');
             }
 
-            let tokenContract = await votingContract.movieTokenInstance();
-            assert.equal(tokenContract, movieTokenContract.contractAddress, 'Incorrect movie token');
+            let tokenContract = await votingContract.votingToken();
+            assert.equal(tokenContract, ERC20MintableContract.contractAddress, 'Incorrect movie token');
 
             let sqrtContract = await votingContract.sqrtInstance();
             assert.equal(sqrtContract, sqrtContractAddress, 'Incorrect sqrt instance');
@@ -77,29 +74,29 @@ describe('Voting Contract', function () {
 
         it('Should throw if one provides empty addresses', async () => {
             await deployTokensSQRT();
-            await deployMovieToken();
+            await deployERC20Mintable();
 
             const EMPTY_ADDRESS = '0x0000000000000000000000000000000000000000';
 
-            await assert.revert(deployer.deploy(Voting, {}, EMPTY_ADDRESS, MOVIES, sqrtContractAddress), 'Providing invalid movie token address did not throw');
-            await assert.revert(deployer.deploy(Voting, {}, movieTokenContract.contractAddress, MOVIES, EMPTY_ADDRESS), 'Providing invalid sqrt contract address did not throw');
+            await assert.revert(deployer.deploy(Voting, {}, EMPTY_ADDRESS, PROPOSALS, sqrtContractAddress), 'Providing invalid movie token address did not throw');
+            await assert.revert(deployer.deploy(Voting, {}, ERC20MintableContract.contractAddress, PROPOSALS, EMPTY_ADDRESS), 'Providing invalid sqrt contract address did not throw');
         });
 
-        it('Should throw if the count of provided movies is bigger than 5', async () => {
-            await deployMovieToken();
+        it('Should throw if the count of provided PROPOSALS is bigger than 5', async () => {
+            await deployERC20Mintable();
             await deployTokensSQRT();
 
-            let incorrectMovies = JSON.parse(JSON.stringify(MOVIES));
-            incorrectMovies.push('0x4d6f766965360000000000000000000000000000000000000000000000000000'); // Movie 6
+            let incorrectPROPOSALS = JSON.parse(JSON.stringify(PROPOSALS));
+            incorrectPROPOSALS.push('0x4d6f766965360000000000000000000000000000000000000000000000000000'); // Movie 6
 
-            await assert.revert(deployer.deploy(Voting, {}, movieTokenContract.contractAddress, incorrectMovies, sqrtContractAddress), 'Providing more movies than allowed did not throw');
+            await assert.revert(deployer.deploy(Voting, {}, ERC20MintableContract.contractAddress, incorrectPROPOSALS, sqrtContractAddress), 'Providing more PROPOSALS than allowed did not throw');
         });
     });
 
     describe('Voting', function () {
 
         beforeEach(async () => {
-            await deployMovieToken();
+            await deployERC20Mintable();
             await deployTokensSQRT();
             await deployVoting();
         });
@@ -107,12 +104,12 @@ describe('Voting Contract', function () {
         it('Should vote correctly', async () => {
             const TOKENS_AMOUNT = '5269871000000000000'; // 5.269871 tokens
 
-            await movieTokenContract.mint(VOTER.address, TOKENS_AMOUNT);
-            await movieTokenContract.from(VOTER).approve(votingContract.contractAddress, TOKENS_AMOUNT);
+            await ERC20MintableContract.mint(VOTER.address, TOKENS_AMOUNT);
+            await ERC20MintableContract.from(VOTER).approve(votingContract.contractAddress, TOKENS_AMOUNT);
 
-            await votingContract.from(VOTER).vote(MOVIES[0]);
+            await votingContract.from(VOTER).vote(PROPOSALS[0]);
 
-            let movieRating = await votingContract.movies(MOVIES[0]);
+            let movieRating = await votingContract.proposals(PROPOSALS[0]);
 
             // 3295619959800000000 is: 1 initial movie rating + 2.2956199598 tokens (sqrt of 5.269871)
             assert.equal(movieRating.toString(), '3295619959800000000', 'Incorrect movie rating');
@@ -127,21 +124,21 @@ describe('Voting Contract', function () {
             const TOKENS_AMOUNT_SECOND_VOTE = '7000000000000000000'; // 7 tokens -> 7 tokens = 1 vote
 
             // First vote
-            await movieTokenContract.mint(VOTER.address, TOKENS_AMOUNT_FIRST_VOTE);
-            await movieTokenContract.from(VOTER).approve(votingContract.contractAddress, TOKENS_AMOUNT_FIRST_VOTE);
+            await ERC20MintableContract.mint(VOTER.address, TOKENS_AMOUNT_FIRST_VOTE);
+            await ERC20MintableContract.from(VOTER).approve(votingContract.contractAddress, TOKENS_AMOUNT_FIRST_VOTE);
 
-            await votingContract.from(VOTER).vote(MOVIES[0]);
+            await votingContract.from(VOTER).vote(PROPOSALS[0]);
 
-            let movieRating = await votingContract.movies(MOVIES[0]);
+            let movieRating = await votingContract.proposals(PROPOSALS[0]);
             assert.equal(movieRating.toString(), '4000000000000000000', 'Incorrect movie rating after first vote');
 
             // Second vote
-            await movieTokenContract.mint(VOTER.address, TOKENS_AMOUNT_SECOND_VOTE);
-            await movieTokenContract.from(VOTER).approve(votingContract.contractAddress, TOKENS_AMOUNT_SECOND_VOTE);
+            await ERC20MintableContract.mint(VOTER.address, TOKENS_AMOUNT_SECOND_VOTE);
+            await ERC20MintableContract.from(VOTER).approve(votingContract.contractAddress, TOKENS_AMOUNT_SECOND_VOTE);
 
-            await votingContract.from(VOTER).vote(MOVIES[0]);
+            await votingContract.from(VOTER).vote(PROPOSALS[0]);
 
-            movieRating = await votingContract.movies(MOVIES[0]);
+            movieRating = await votingContract.proposals(PROPOSALS[0]);
             assert.equal(movieRating.toString(), '5000000000000000000', 'Incorrect movie rating after second vote');
 
             let voterStat = await votingContract.voters(VOTER.address);
@@ -153,34 +150,34 @@ describe('Voting Contract', function () {
             const DAY = 60 * 60 * 24;
             utils.timeTravel(deployer.provider, VOTING_DURATION + DAY); // One day after the expiration date of voting 
 
-            await assert.revert(votingContract.from(VOTER).vote(MOVIES[0]), 'Voting after the expiration date did not throw');
+            await assert.revert(votingContract.from(VOTER).vote(PROPOSALS[0]), 'Voting after the expiration date did not throw');
         });
 
         it('Should throw if a voter tries to vote with balance lower than the minimum required', async () => {
-            await assert.revert(votingContract.from(VOTER).vote(MOVIES[0]), 'Voting with balance lower the the required one did not throw');
+            await assert.revert(votingContract.from(VOTER).vote(PROPOSALS[0]), 'Voting with balance lower the the required one did not throw');
         });
 
         it('Should throw if one tries to vote for more than one movie', async () => {
             const TOKENS_AMOUNT = '1000000000000000000';
 
-            await movieTokenContract.mint(VOTER.address, TOKENS_AMOUNT);
-            await movieTokenContract.from(VOTER).approve(votingContract.contractAddress, TOKENS_AMOUNT);
+            await ERC20MintableContract.mint(VOTER.address, TOKENS_AMOUNT);
+            await ERC20MintableContract.from(VOTER).approve(votingContract.contractAddress, TOKENS_AMOUNT);
 
-            await votingContract.from(VOTER).vote(MOVIES[0]);
+            await votingContract.from(VOTER).vote(PROPOSALS[0]);
 
             // A voter could vote only with his whole balance of tokens
             // In order to vote again, he should buy more mogul tokens in order to get movie tokens
-            await movieTokenContract.mint(VOTER.address, TOKENS_AMOUNT);
-            await movieTokenContract.from(VOTER).approve(votingContract.contractAddress, TOKENS_AMOUNT);
+            await ERC20MintableContract.mint(VOTER.address, TOKENS_AMOUNT);
+            await ERC20MintableContract.from(VOTER).approve(votingContract.contractAddress, TOKENS_AMOUNT);
 
-            await assert.revert(votingContract.from(VOTER).vote(MOVIES[1]), 'Voting for more than one movie did not throw');
+            await assert.revert(votingContract.from(VOTER).vote(PROPOSALS[1]), 'Voting for more than one movie did not throw');
         });
 
         it('Should throw if one does not approve required tokens amount for votes', async () => {
             const TOKENS_AMOUNT = '1000000000000000000';
-            await movieTokenContract.mint(VOTER.address, TOKENS_AMOUNT);
+            await ERC20MintableContract.mint(VOTER.address, TOKENS_AMOUNT);
 
-            await assert.revert(votingContract.from(VOTER).vote(MOVIES[0]), 'Voting without required approve did not throw');
+            await assert.revert(votingContract.from(VOTER).vote(PROPOSALS[0]), 'Voting without required approve did not throw');
         });
     });
 });

@@ -1,21 +1,20 @@
 const ethers = require('ethers');
-const etherlime = require('etherlime');
+const etherlime = require('etherlime-lib');
 
-const DAIToken = require('./../build/MogulDAI');
-const MovieToken = require('./../build/MovieToken');
+const DAIToken = require('./../build/CODAI');
 
 const Voting = require('./../build/Voting')
 const DAIExchange = require('./../build/DAIExchange');
 const BondingMath = require('./../build/BondingMathematics');
-const MogulOrganization = require('./../build/MogulOrganisation');
+const ContinuousOrganisation = require('./../build/ContinuousOrganisation');
 
-const BondingSQRT = require('./../contracts/Math/SQRT.json');
-const TokensSQRT = require('./../contracts/Math/TokensSQRT.json');
+const BondingSQRT = require('./../build/SQRT.json');
+const TokensSQRT = require('./../build/TokensSQRT.json');
 
 const UNLOCK_AMOUNT = '1000000000000000000'; // 1 ETH
 
 // Mogul wallet address
-let MOGUL_BANK = '0x53E63Ee92e1268919CF4757A9b1d48048C501A50';
+let CO_BANK = '0x53E63Ee92e1268919CF4757A9b1d48048C501A50';
 let DAI_TOKEN_ADDRESS = '0xe0B206A30c778f8809c753844210c73D23001a96';
 
 const ENV = {
@@ -24,7 +23,7 @@ const ENV = {
 }
 
 const DEPLOYERS = {
-    LOCAL: (secret) => { return new etherlime.EtherlimeGanacheDeployer(secret, 8545, '') },
+    LOCAL: (secret) => { return new etherlime.EtherlimeGanacheDeployer() },
     TEST: (secret) => { return new etherlime.InfuraPrivateKeyDeployer(secret, 'ropsten', '') }
 }
 
@@ -38,16 +37,14 @@ const deploy = async (network, secret) => {
     let daiExchangeContract = await deployDAIExchange(deployer, daiContract);
     await daiContract.addMinter(daiExchangeContract.contractAddress);
 
-    // Deploy Movie Token
-    const movieTokenContractDeployed = await deployer.deploy(MovieToken, {});
+    const cOrganisation = await deployContinuousOrganisation(deployer, daiContract.address);
 
-    await deployVoting(deployer, movieTokenContractDeployed);
+    const coToken = await cOrganisation.coToken();
 
-    const mogulOrganization = await deployMogulOrganization(deployer, movieTokenContractDeployed, daiContract.address);
+    await deployVoting(deployer, coToken);
 
-    await movieTokenContractDeployed.addMinter(mogulOrganization.contractAddress);
-    await daiContract.approve(mogulOrganization.contractAddress, UNLOCK_AMOUNT);
-    await mogulOrganization.unlockOrganisation(UNLOCK_AMOUNT);
+    await daiContract.approve(cOrganisation.contractAddress, UNLOCK_AMOUNT);
+    await cOrganisation.unlockOrganisation(UNLOCK_AMOUNT);
 };
 
 let getDeployer = function (env, secret) {
@@ -75,33 +72,27 @@ let deployDAIExchange = async function (deployer, daiToken) {
     return exchangeContractDeployed;
 }
 
-let deployMogulOrganization = async function (deployer, movieToken, daiToken) {
+let deployContinuousOrganisation = async function (deployer, daiToken) {
 
     // Deploy Organization Bonding SQRT Math
-    const bondingSqrtDeployTx = await deployer.signer.sendTransaction({
-        data: BondingSQRT.bytecode
-    });
-
-    await deployer.provider.waitForTransaction(bondingSqrtDeployTx.hash);
-    bondingSqrtContractAddress = (await deployer.provider.getTransactionReceipt(bondingSqrtDeployTx.hash)).contractAddress;
+    const bondingSQRTContract = await deployer.deploy(BondingSQRT, {});
 
 
     // Deploy Bonding Calculations
-    const bondingMathContractDeployed = await deployer.deploy(BondingMath, {}, bondingSqrtContractAddress);
+    const bondingMathContractDeployed = await deployer.deploy(BondingMath, {}, bondingSQRTContract.contractAddress);
 
 
     // Deploy Organization
-    const mogulOrganizationContractDeployed = await deployer.deploy(MogulOrganization, {},
+    const coContract = await deployer.deploy(ContinuousOrganisation, {},
         bondingMathContractDeployed.contractAddress,
         daiToken,
-        movieToken.contractAddress,
-        MOGUL_BANK
+        CO_BANK
     );
 
-    return mogulOrganizationContractDeployed;
+    return coContract;
 }
 
-let deployVoting = async function (deployer, movieToken) {
+let deployVoting = async function (deployer, votingToken) {
 
     const MOVIES = [
         '0x4d6f766965310000000000000000000000000000000000000000000000000000', // Movie1
@@ -113,16 +104,11 @@ let deployVoting = async function (deployer, movieToken) {
 
 
     // Deploy Token SQRT Math
-    const tokenSqrtDeployTx = await deployer.signer.sendTransaction({
-        data: TokensSQRT.bytecode
-    });
-
-    await deployer.provider.waitForTransaction(tokenSqrtDeployTx.hash);
-    tokenSqrtContractAddress = (await deployer.provider.getTransactionReceipt(tokenSqrtDeployTx.hash)).contractAddress;
+    const tokenSQRTContract = await deployer.deploy(TokensSQRT, {});
 
 
     // Deploy Voting
-    const votingContractDeployed = await deployer.deploy(Voting, {}, movieToken.contractAddress, MOVIES, tokenSqrtContractAddress);
+    const votingContractDeployed = await deployer.deploy(Voting, {}, votingToken, MOVIES, tokenSQRTContract.contractAddress);
     return votingContractDeployed;
 }
 

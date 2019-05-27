@@ -1,8 +1,8 @@
 const ethers = require('ethers');
-const etherlime = require('etherlime');
+const etherlime = require('etherlime-lib');
 const deployer = new etherlime.EtherlimeGanacheDeployer();
 
-const DAIToken = require('./../build/MogulDAI');
+const DAIToken = require('./../build/CODAI');
 const DAIExchange = require('./../build/DAIExchange');
 
 describe('DAI Exchange Contract', () => {

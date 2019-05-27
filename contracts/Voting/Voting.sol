@@ -1,15 +1,15 @@
 pragma solidity ^0.5.3;
 
 import "./../Math/Convert.sol";
-import "./../Tokens/MovieToken/MovieToken.sol";
-import "./../../node_modules/openzeppelin-solidity/contracts/math/SafeMath.sol";
+import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
+import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 
 contract Voting {
     
     using Convert for bytes;
     using SafeMath for uint256;
     
-    uint256 public constant MAX_MOVIES_COUNT = 5;
+    uint256 public constant MAX_PROPOSALS_COUNT = 5;
     // This duration is only for POC purpose
     uint256 public constant VOTING_DURATION = 10000 days;
     uint256 public constant MINIMUM_TOKENS_AMOUNT_FOR_VOTING = 10**18; // 1 token
@@ -17,21 +17,21 @@ contract Voting {
     uint256 public expirationDate;
 
     address public sqrtInstance;
-    MovieToken public movieTokenInstance;
+    ERC20 public votingToken;
 
-    struct VoterMovie {
+    struct Proposal {
         bytes32 title;
         uint256 tokens;
         uint256 rating;
     }
 
-     // Voter => VoterMovie
-    mapping(address => VoterMovie) public voters;
+     // Voter => Proposal
+    mapping(address => Proposal) public voters;
 
-    // Movie => rating (Sum)
-    mapping(bytes32 => uint256) public movies;
+    // Proposal => rating (Sum)
+    mapping(bytes32 => uint256) public proposals;
 
-    event Vote(address voter, bytes32 movie, uint256 tokens, uint256 rating);
+    event Vote(address voter, bytes32 proposal, uint256 tokens, uint256 rating);
 
 
     modifier whenInLive(){
@@ -39,40 +39,40 @@ contract Voting {
         _;
     }
 
-    constructor(address movieTokenContract, bytes32[] memory moviesNames, address sqrtContract) public {
+    constructor(address votingTokenContract, bytes32[] memory proposalsNames, address sqrtContract) public {
         require(sqrtContract != address(0), "SQRT contract could not be an empty address");
-        require(movieTokenContract != address(0), "Movie token contract could be an empty address");
-        require(moviesNames.length <= MAX_MOVIES_COUNT, "Movies are more than the allowed quantity");
+        require(votingTokenContract != address(0), "Proposal token contract could be an empty address");
+        require(proposalsNames.length <= MAX_PROPOSALS_COUNT, "proposals are more than the allowed quantity");
         
         expirationDate = now.add(VOTING_DURATION);
 
-        for(uint8 i = 0; i < moviesNames.length; i++){
-            movies[moviesNames[i]] = 1000000000000000000; // initial rating of one token
+        for(uint8 i = 0; i < proposalsNames.length; i++){
+            proposals[proposalsNames[i]] = 1000000000000000000; // initial rating of one token
         }
 
         sqrtInstance = sqrtContract;
-        movieTokenInstance = MovieToken(movieTokenContract);
+        votingToken = ERC20(votingTokenContract);
     }
 
-    function vote(bytes32 movie) public whenInLive {
-        require(voters[msg.sender].title == 0x0 || voters[msg.sender].title == movie, "Voter can only vote for one movie per round");
+    function vote(bytes32 proposal) public whenInLive {
+        require(voters[msg.sender].title == 0x0 || voters[msg.sender].title == proposal, "Voter can only vote for one proposal per round");
 
-        uint256 voterTokensBalance = movieTokenInstance.balanceOf(msg.sender);
-        require(voterTokensBalance >= MINIMUM_TOKENS_AMOUNT_FOR_VOTING, "Voter should have at least 1 movie token in order to vote");
-        require(movieTokenInstance.allowance(msg.sender, address(this)) >= voterTokensBalance, "Voter did not approved enough balance to be transfered for his votes");
+        uint256 voterTokensBalance = votingToken.balanceOf(msg.sender);
+        require(voterTokensBalance >= MINIMUM_TOKENS_AMOUNT_FOR_VOTING, "Voter should have at least 1 proposal token in order to vote");
+        require(votingToken.allowance(msg.sender, address(this)) >= voterTokensBalance, "Voter did not approved enough balance to be transfered for his votes");
  
-        movieTokenInstance.transferFrom(msg.sender, address(this), voterTokensBalance);
+        votingToken.transferFrom(msg.sender, address(this), voterTokensBalance);
 
         uint256 totalRating = __calculateRatingByTokens(voters[msg.sender].tokens.add(voterTokensBalance));
         uint256 additionalRating = totalRating.sub(voters[msg.sender].rating); 
 
-        movies[movie] = movies[movie].add(additionalRating);
+        proposals[proposal] = proposals[proposal].add(additionalRating);
 
-        voters[msg.sender].title = movie;
+        voters[msg.sender].title = proposal;
         voters[msg.sender].rating = voters[msg.sender].rating.add(additionalRating);
         voters[msg.sender].tokens = voters[msg.sender].tokens.add(voterTokensBalance);
 
-        emit Vote(msg.sender, movie, voterTokensBalance, additionalRating);
+        emit Vote(msg.sender, proposal, voterTokensBalance, additionalRating);
     }
 
     // Rating is calculated as => sqrt(voter tokens balance) => 1 token = 1 rating; 9 tokens = 3 rating

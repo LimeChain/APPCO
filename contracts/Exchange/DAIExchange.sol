@@ -1,19 +1,19 @@
-pragma solidity 0.5.4;
+pragma solidity ^0.5.4;
 
-import "./../Tokens/MogulDAI/MogulDAI.sol";
-import "./../../node_modules/openzeppelin-solidity/contracts/math/SafeMath.sol";
-import "./../../node_modules/openzeppelin-solidity/contracts/ownership/Ownable.sol";
+import "./../Tokens/CODAI.sol";
+import "openzeppelin-solidity/contracts/math/SafeMath.sol";
+import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
 contract DAIExchange is Ownable {
 
     using SafeMath for uint256;
 
-    MogulDAI public daiToken;
+    CODAI public daiToken;
     uint256 constant public MINIMUM_EXCHANGE_RATE = 100; // 100 rate => 1 ETH = 1 DAI
 
 
     constructor(address daiTokenContract) public {
-        daiToken = MogulDAI(daiTokenContract);
+        daiToken = CODAI(daiTokenContract);
     }   
 
     // Rate should be always provided with 2 digits fraction precision
