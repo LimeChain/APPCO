@@ -2,10 +2,8 @@ const etherlime = require('etherlime-lib');
 
 const CODAI = require('./../../build/CODAI');
 const COToken = require('./../../build/COToken');
-
 const SQRT = require('./../../build/SQRT.json');
 const BondingMathematics = require('./../../build/BondingMathematics');
-
 const ContinuousOrganisation = require('./../../build/ContinuousOrganisation');
 
 const deployerWallet = accounts[0].signer;
@@ -33,7 +31,6 @@ let getCoToken = async (COInstance, wallet) => {
     let coTokenAddress = await COInstance.coToken();
     let coTokenContract = new ethers.Contract(coTokenAddress, COToken.abi, deployerWallet.provider);
     return coTokenContract.connect(wallet);
-
 };
 
 let deployBondingMath = async () => {

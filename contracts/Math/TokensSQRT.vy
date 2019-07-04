@@ -8,16 +8,8 @@ def tokens_sqrt(num: uint256) -> uint256:
 
     assert normalizedNumber >= 1.0
     
-    root: decimal = normalizedNumber
-    rootCalculations: decimal = (normalizedNumber + 1.0) / 2.0
-    
-    for i in range(256):
-        if (rootCalculations >= root):
-            break
-        
-        root = rootCalculations
-        rootCalculations = (normalizedNumber / root + root) / 2.0
-    
+    root: decimal = sqrt(normalizedNumber)
+
     root *= normalization
 
     return convert(root, uint256)

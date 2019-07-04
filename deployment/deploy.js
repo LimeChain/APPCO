@@ -2,12 +2,9 @@ const ethers = require('ethers');
 const etherlime = require('etherlime-lib');
 
 const DAIToken = require('./../build/CODAI');
-
 const Voting = require('./../build/Voting')
-const DAIExchange = require('./../build/DAIExchange');
 const BondingMath = require('./../build/BondingMathematics');
 const ContinuousOrganisation = require('./../build/ContinuousOrganisation');
-
 const BondingSQRT = require('./../build/SQRT.json');
 const TokensSQRT = require('./../build/TokensSQRT.json');
 
@@ -33,9 +30,6 @@ const deploy = async (network, secret) => {
     // Change ENV in order to deploy on test net (Ropsten)
     const deployer = getDeployer(ENV.LOCAL, secret);
     const daiContract = await getDAIContract(deployer);
-
-    let daiExchangeContract = await deployDAIExchange(deployer, daiContract);
-    await daiContract.addMinter(daiExchangeContract.contractAddress);
 
     const cOrganisation = await deployContinuousOrganisation(deployer, daiContract.address);
 

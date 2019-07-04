@@ -16,10 +16,10 @@ contract BondingMathematics {
     }
 
     function calcPurchase(uint256 continuousTokenSupply,
-        uint256 reserveTokenSupply,
+        uint256 totalInvestedSupply,
         uint256 daiAmount) public view returns (uint256){
 
-        (bool success, bytes memory data) = vyperMath.staticcall(abi.encodeWithSignature("calc_purchase(uint256,uint256,uint256)", continuousTokenSupply, reserveTokenSupply, daiAmount));
+        (bool success, bytes memory data) = vyperMath.staticcall(abi.encodeWithSignature("calc_purchase(uint256,uint256,uint256)", continuousTokenSupply, totalInvestedSupply, daiAmount));
         require(success);
 
         uint tokensAmount = data.toUint256();

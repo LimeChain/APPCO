@@ -1,6 +1,6 @@
 @public
 @constant
-def sqrt(num: decimal) -> uint256:
+def sqrt_high_precision(num: decimal) -> uint256:
     if num == 0.0:
         return 0
 
@@ -8,15 +8,17 @@ def sqrt(num: decimal) -> uint256:
 
     assert num >= 1.0
 
-    root: decimal = num
-    rootCalculations: decimal = (num + 1.0) / 2.0
+    # root: decimal = num
+    # rootCalculations: decimal = (num + 1.0) / 2.0
 
-    for i in range(256):
-        if (rootCalculations >= root):
-            break
+    # for i in range(256):
+    #     if (rootCalculations >= root):
+    #         break
 
-        root = rootCalculations
-        rootCalculations = (num / root + root) / 2.0
+    #     root = rootCalculations
+    #     rootCalculations = (num / root + root) / 2.0
+
+    root: decimal = sqrt(num)
 
     root *= normalization
 
@@ -32,7 +34,7 @@ def calc_purchase(tokenSupply: uint256, etherSupply: uint256, etherAmount: uint2
     etherAmountAsDecimal: decimal = convert(etherAmount, decimal)
 
     temp: decimal = (1.0 + etherAmountAsDecimal / ethSupplyAsDecimal)
-    sqrtCalc: uint256 = self.sqrt(temp)
+    sqrtCalc: uint256 = self.sqrt_high_precision(temp)
     tokensAfterPurchase: uint256 = tokenSupply * (sqrtCalc - 1) / normalization
     return tokensAfterPurchase
 
