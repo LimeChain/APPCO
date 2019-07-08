@@ -9,7 +9,7 @@ describe('Continuous Organisation Contract', () => {
     const OWNER = accounts[0].signer;
     const INVESTOR = accounts[1].signer;
     const REPAYER = accounts[2].signer;
-    const CO_BANK = accounts[9].signer.address;
+    let votingContract;
 
     const INITIAL_COTOKEN_SUPPLY = "1000000000000000000";
 
@@ -25,11 +25,12 @@ describe('Continuous Organisation Contract', () => {
 
     let CODAIInstance;
     let coTokenInstance;
+    let tokenSQRTInstance;
 
     let coInstance;
 
 
-    describe.only('Continuous Organisation Contract', function () {
+    describe('Continuous Organisation Contract', function () {
 
         beforeEach(async () => {
             CODAIInstance = await contractInitializator.deployCODAI();
@@ -57,20 +58,27 @@ describe('Continuous Organisation Contract', () => {
 
         describe('Unlocking', function () {
 
+            beforeEach(async () => {
+
+                tokenSQRTInstance = await contractInitializator.deployTokenSQRT();
+
+            });
+
             it('Should unlock the organisation', async () => {
                 let expectedBalance = "100000000000000000000"; // 20% from 500 DAI = 100 DAI
-                await coInstance.unlockOrganisation(UNLOCK_AMOUNT, UNLOCK_MINT);
+
+                await coInstance.unlockOrganisation(UNLOCK_AMOUNT, UNLOCK_MINT, tokenSQRTInstance.contractAddress);
                 let organisationBalance = await CODAIInstance.balanceOf(coInstance.contractAddress);
                 assert(organisationBalance.eq(expectedBalance), 'Organisation balance is incorrect after unlocking');
             });
 
             it('Should throw on re-unlocking', async () => {
-                await coInstance.unlockOrganisation(UNLOCK_AMOUNT, UNLOCK_MINT);
-                await assert.revert(coInstance.unlockOrganisation(UNLOCK_AMOUNT, UNLOCK_MINT), 'Re-unlocking of an organisation did not throw');
+                await coInstance.unlockOrganisation(UNLOCK_AMOUNT, UNLOCK_MINT, tokenSQRTInstance.contractAddress);
+                await assert.revert(coInstance.unlockOrganisation(UNLOCK_AMOUNT, UNLOCK_MINT, tokenSQRTInstance.contractAddress), 'Re-unlocking of an organisation did not throw');
             });
 
             it('Should throw if an unlocker tries to unlock with unapproved DAI amount', async () => {
-                await assert.revert(coInstance.unlockOrganisation(DOUBLE_UNLOCK_AMOUNT, UNLOCK_MINT), 'Organisation has been unlocked with unapproved DAI amount');
+                await assert.revert(coInstance.unlockOrganisation(DOUBLE_UNLOCK_AMOUNT, UNLOCK_MINT, tokenSQRTInstance.contractAddress), 'Organisation has been unlocked with unapproved DAI amount');
             });
 
             it('Should throw if one tries to invest in non-unlocked organisation', async () => {
@@ -80,15 +88,17 @@ describe('Continuous Organisation Contract', () => {
 
         describe('Investment', function () {
             beforeEach(async () => {
-                await coInstance.unlockOrganisation(UNLOCK_AMOUNT, UNLOCK_MINT);
+                tokenSQRTInstance = await contractInitializator.deployTokenSQRT();
+                await coInstance.unlockOrganisation(UNLOCK_AMOUNT, UNLOCK_MINT, tokenSQRTInstance.contractAddress);
                 await coInstance.from(INVESTOR).invest(INVESTMENT_AMOUNT, {
                     gasLimit: 300000
                 });
+                votingContract = await coInstance.votingContract();
             });
 
-            it('should send correct dai amount to the CO bank', async () => {
+            it('should send correct dai amount to the voting contract', async () => {
                 const EXPECTED_BANK_BALANCE = '400800000000000000000'; // 400 DAI + 0.8 DAI
-                let bankBalance = await CODAIInstance.balanceOf(CO_BANK);
+                let bankBalance = await CODAIInstance.balanceOf(votingContract);
                 assert(bankBalance.eq(EXPECTED_BANK_BALANCE), 'Incorrect bank balance after investment');
             });
 
@@ -123,7 +133,8 @@ describe('Continuous Organisation Contract', () => {
         describe('Exit Investment', function () {
 
             beforeEach(async () => {
-                await coInstance.unlockOrganisation(UNLOCK_AMOUNT, UNLOCK_MINT);
+                tokenSQRTInstance = await contractInitializator.deployTokenSQRT();
+                await coInstance.unlockOrganisation(UNLOCK_AMOUNT, UNLOCK_MINT, tokenSQRTInstance.contractAddress);
                 await coInstance.from(INVESTOR).invest(INVESTMENT_AMOUNT, {
                     gasLimit: 300000
                 });
@@ -198,7 +209,8 @@ describe('Continuous Organisation Contract', () => {
         describe('Paying dividents', function () {
 
             beforeEach(async () => {
-                await coInstance.unlockOrganisation(UNLOCK_AMOUNT, UNLOCK_MINT);
+                tokenSQRTInstance = await contractInitializator.deployTokenSQRT();
+                await coInstance.unlockOrganisation(UNLOCK_AMOUNT, UNLOCK_MINT, tokenSQRTInstance.contractAddress);
                 await coInstance.from(INVESTOR).invest(INVESTMENT_AMOUNT, {
                     gasLimit: 300000
                 });

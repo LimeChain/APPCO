@@ -5,6 +5,8 @@ const COToken = require('./../../build/COToken');
 const SQRT = require('./../../build/SQRT.json');
 const BondingMathematics = require('./../../build/BondingMathematics');
 const ContinuousOrganisation = require('./../../build/ContinuousOrganisation');
+const TokensSQRT = require('./../../build/TokensSQRT.json');
+const CategoryVoting = require('./../../build/CategoryVoting');
 
 const deployerWallet = accounts[0].signer;
 const CO_BANK = accounts[9].signer.address;
@@ -19,22 +21,27 @@ let deployContinuousOrganisation = async (mglDai) => {
 
     return deployer.deploy(ContinuousOrganisation, {},
         bondingMathematicsInstance.contractAddress,
-        mglDai.contractAddress,
-        CO_BANK);
+        mglDai.contractAddress);
 };
 
-let deployTokensSQRT = async () => {
+let deployTokenSQRT = async () => {
+    return deployer.deploy(TokensSQRT, {});
+};
+
+let deploySQRT = async () => {
     return deployer.deploy(SQRT);
 };
 
 let getCoToken = async (COInstance, wallet) => {
+
     let coTokenAddress = await COInstance.coToken();
     let coTokenContract = new ethers.Contract(coTokenAddress, COToken.abi, deployerWallet.provider);
+
     return coTokenContract.connect(wallet);
 };
 
 let deployBondingMath = async () => {
-    let sqrtContractAddress = await deployTokensSQRT();
+    let sqrtContractAddress = await deploySQRT();
     return deployer.deploy(BondingMathematics, {}, sqrtContractAddress.contractAddress);
 };
 
@@ -55,5 +62,6 @@ module.exports = {
     mintDAI,
     approveDAI,
     deployContinuousOrganisation,
-    deployCODAI
+    deployCODAI,
+    deployTokenSQRT
 };

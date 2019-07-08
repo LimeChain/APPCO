@@ -1,10 +1,11 @@
 pragma solidity ^0.5.3;
 
 import "./../Math/Convert.sol";
-import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
+import "./../Tokens/COToken.sol";
+import "./../ITokenTransferLimiter.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 
-contract Voting {
+contract Voting is ITokenTransferLimiter {
     
     using Convert for bytes;
     using SafeMath for uint256;
@@ -17,7 +18,7 @@ contract Voting {
     uint256 public expirationDate;
 
     address public sqrtInstance;
-    ERC20 public votingToken;
+    COToken public votingToken;
 
     struct Proposal {
         bytes32 title;
@@ -32,7 +33,6 @@ contract Voting {
     mapping(bytes32 => uint256) public proposals;
 
     event Vote(address voter, bytes32 proposal, uint256 tokens, uint256 rating);
-
 
     modifier whenInLive(){
         require(now <= expirationDate, "Voting period is expired");
@@ -51,7 +51,7 @@ contract Voting {
         }
 
         sqrtInstance = sqrtContract;
-        votingToken = ERC20(votingTokenContract);
+        votingToken = COToken(votingTokenContract);
     }
 
     function vote(bytes32 proposal) public whenInLive {
@@ -78,10 +78,15 @@ contract Voting {
     // Rating is calculated as => sqrt(voter tokens balance) => 1 token = 1 rating; 9 tokens = 3 rating
     function __calculateRatingByTokens(uint256 tokens) private view returns(uint256){
         // Call a Vyper SQRT contract in order to work with decimals in sqrt
-        (bool success, bytes  memory data) = sqrtInstance.staticcall(abi.encodeWithSignature("tokens_sqrt(uint256)", tokens));
+        (bool success, bytes memory data) = sqrtInstance.staticcall(abi.encodeWithSignature("tokens_sqrt(uint256)", tokens));
         require(success);
 
         uint rating = data.toUint256();
         return rating;
     }
+
+    function canMoveTokens(address from, address to, uint256 amount) public view returns(bool) {
+        return true;
+    }
+
 }

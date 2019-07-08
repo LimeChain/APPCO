@@ -2,13 +2,15 @@ const ethers = require('ethers');
 const etherlime = require('etherlime-lib');
 
 const DAIToken = require('./../build/CODAI');
+const COToken = require('./../build/COToken');
 const Voting = require('./../build/Voting')
 const BondingMath = require('./../build/BondingMathematics');
 const ContinuousOrganisation = require('./../build/ContinuousOrganisation');
 const BondingSQRT = require('./../build/SQRT.json');
 const TokensSQRT = require('./../build/TokensSQRT.json');
 
-const UNLOCK_AMOUNT = '1000000000000000000'; // 1 ETH
+const UNLOCK_AMOUNT = "500000000000000000000";
+const UNLOCK_MINT = "499000000000000000000";
 
 // Mogul wallet address
 let CO_BANK = '0x53E63Ee92e1268919CF4757A9b1d48048C501A50';
@@ -31,14 +33,22 @@ const deploy = async (network, secret) => {
     const deployer = getDeployer(ENV.LOCAL, secret);
     const daiContract = await getDAIContract(deployer);
 
-    const cOrganisation = await deployContinuousOrganisation(deployer, daiContract.address);
+    const cOrganisation = await deployContinuousOrganisation(deployer, daiContract.contractAddress);
 
     const coToken = await cOrganisation.coToken();
 
-    await deployVoting(deployer, coToken);
+    const votingContract = await deployVoting(deployer, coToken);
 
-    await daiContract.approve(cOrganisation.contractAddress, UNLOCK_AMOUNT);
-    await cOrganisation.unlockOrganisation(UNLOCK_AMOUNT);
+    const coTokenContract = await etherlime.ContractAt(COToken, coToken, deployer.signer);
+    const setTLtx = await coTokenContract.contract.setTokenLimiter(votingContract.contractAddress);
+    await coTokenContract.verboseWaitForTransaction(setTLtx, "Setting Token Limitter Transaction")
+
+
+    const approveTx = await daiContract.contract.approve(cOrganisation.contractAddress, UNLOCK_AMOUNT);
+    await daiContract.verboseWaitForTransaction(approveTx, "Approve Unlock Transaction")
+    const unlockTx = await cOrganisation.contract.unlockOrganisation(UNLOCK_AMOUNT, UNLOCK_MINT);
+    await cOrganisation.verboseWaitForTransaction(unlockTx, "Unlock Transaction")
+
 };
 
 let getDeployer = function (env, secret) {
@@ -55,7 +65,7 @@ let getDAIContract = async function (deployer) {
         let daiContractDeployed = await deployer.deploy(DAIToken, {});
         await daiContractDeployed.mint(deployer.signer.address, UNLOCK_AMOUNT);
 
-        return daiContractDeployed.contract;
+        return daiContractDeployed;
     }
 
     return new ethers.Contract(DAI_TOKEN_ADDRESS, DAIToken.abi, deployer.signer);

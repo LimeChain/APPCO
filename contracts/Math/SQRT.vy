@@ -8,16 +8,6 @@ def sqrt_high_precision(num: decimal) -> uint256:
 
     assert num >= 1.0
 
-    # root: decimal = num
-    # rootCalculations: decimal = (num + 1.0) / 2.0
-
-    # for i in range(256):
-    #     if (rootCalculations >= root):
-    #         break
-
-    #     root = rootCalculations
-    #     rootCalculations = (num / root + root) / 2.0
-
     root: decimal = sqrt(num)
 
     root *= normalization

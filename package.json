@@ -4,7 +4,7 @@
   "description": "This is the default package.json generated for your project",
   "main": "index.js",
   "scripts": {
-    "test": "etherlime test ./test"
+    "test": "etherlime test --runs=999"
   },
   "author": "",
   "license": "ISC",
@@ -12,5 +12,6 @@
     "etherlime-lib": "^1.1.1",
     "ethers": "^4.0.28",
     "openzeppelin-solidity": "^2.1.2"
-  }
+  },
+  "devDependencies": {}
 }
