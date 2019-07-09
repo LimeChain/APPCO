@@ -1,7 +1,7 @@
 pragma solidity ^0.5.3;
 
 import "./../Math/Convert.sol";
-import "./../Tokens/COToken.sol";
+import "./../Tokens/ICOToken.sol";
 import "./../ITokenTransferLimiter.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 
@@ -26,7 +26,7 @@ contract CategoryVoting is ITokenTransferLimiter {
     // total votes
 
     address public sqrtInstance;
-    COToken public votingToken;
+    ICOToken public votingToken;
 
     uint256 public constant proposerDeposit = 10**18; // 1 COToken
     uint256 public constant memberBalanceTreshold = 10**18;
@@ -57,6 +57,7 @@ contract CategoryVoting is ITokenTransferLimiter {
         bytes32 name;
         bytes32 details;
         uint256 votingPeriodLength;
+        uint256 lastProposalId;
     }
 
     struct CategoryProposal {
@@ -74,15 +75,29 @@ contract CategoryVoting is ITokenTransferLimiter {
         mapping(address => Vote) hasVoted;
     }
 
+    struct NonCompetingProposal {
+        uint256 id;
+        address proposer;
+        uint256 startPeriod;
+        bytes32 details;
+        uint256 yesVotes;
+        uint256 noVotes;
+        bool processed;
+        bool didPass;
+        mapping(address => Vote) hasVoted;
+    }
+
     Category[] public categories;
 
     CategoryProposal[] public categoryProposalsQueue;
 
     mapping(address => uint256) public membersLockPeriod; // Stores the time after which they can move their tokens
 
+    mapping(uint256 => NonCompetingProposal[]) public categoryNonCompetingProposals;
 
     event CategoryProposed(uint256 proposalId, address proposer);
     event CategoryVote(uint256 proposalId, address voter, uint8 vote);
+    event CategoryFinalised(uint256 proposalId, bool didPass);
 
     modifier onlyMember {
         require(votingToken.balanceOf(msg.sender) >= memberBalanceTreshold, "AppDAO :: onlyMember - not enough balance");
@@ -96,7 +111,7 @@ contract CategoryVoting is ITokenTransferLimiter {
         creationTime = now;
 
         sqrtInstance = sqrtContract;
-        votingToken = COToken(votingTokenContract);
+        votingToken = ICOToken(votingTokenContract);
     }
 
     function proposeCategory(uint8 votingType, bytes32 name, bytes32 details, uint256 votingPeriodLength) public {
@@ -111,7 +126,7 @@ contract CategoryVoting is ITokenTransferLimiter {
         votingToken.transferFrom(msg.sender, address(this), proposerDeposit);
 
         uint256 startPeriod = max(
-            getCurrentPeriod(),
+            getCurrentPeriod(periodDuration),
             categoryProposalsQueue.length == 0 ? 0 : categoryProposalsQueue[categoryProposalsQueue.length.sub(1)].startPeriod
         ).add(1);
 
@@ -143,7 +158,7 @@ contract CategoryVoting is ITokenTransferLimiter {
         require(_vote > 0 && _vote < 3, "voteCategory :: invalid vote");
 
         CategoryProposal storage cp = categoryProposalsQueue[categoryProposalId.sub(1)];
-        uint256 currentPeriod = getCurrentPeriod();
+        uint256 currentPeriod = getCurrentPeriod(periodDuration);
 
         require(currentPeriod >= cp.startPeriod, "voteCategory :: proposal voting has not started");
         require(currentPeriod <= (cp.startPeriod.add(categoryVotingPeriodLength)), "voteCategory :: proposal voting period has finished");
@@ -173,7 +188,7 @@ contract CategoryVoting is ITokenTransferLimiter {
         require(categoryProposalId > 0 && categoryProposalId <= lastCategoryProposalId, "voteCategory :: invalid category proposal id");
 
         CategoryProposal storage cp = categoryProposalsQueue[categoryProposalId.sub(1)];
-        uint256 currentPeriod = getCurrentPeriod();
+        uint256 currentPeriod = getCurrentPeriod(periodDuration);
 
         require(currentPeriod > (cp.startPeriod.add(categoryVotingPeriodLength)), "voteCategory :: proposal voting period has finished");
 
@@ -187,7 +202,8 @@ contract CategoryVoting is ITokenTransferLimiter {
                 votingType: cp.votingType,
                 name: cp.name,
                 details: cp.details,
-                votingPeriodLength: cp.votingPeriodLength
+                votingPeriodLength: cp.votingPeriodLength,
+                lastProposalId: 0
             });
             categories.push(c);
             cp.didPass = true;
@@ -196,6 +212,36 @@ contract CategoryVoting is ITokenTransferLimiter {
         votingToken.transfer(msg.sender, finalizerReward);
         votingToken.transfer(cp.proposer, proposerDeposit.sub(finalizerReward));
         cp.processed = true;
+
+        emit CategoryFinalised(categoryProposalId, cp.didPass);
+    }
+
+    function proposeNonCompeting(uint256 categoryId, bytes32 details) public {
+        require(votingToken.balanceOf(msg.sender) >= proposerDeposit, "proposeNonCompeting :: not enough balance for depositing");
+
+        Category memory c = categories[categoryId];
+        c.lastProposalId++;
+
+        NonCompetingProposal[] memory categoryQueue = categoryNonCompetingProposals[categoryId];
+
+        uint256 startPeriod = max(
+            getCurrentPeriod(c.votingPeriodLength),
+            categoryQueue.length == 0 ? 0 : categoryQueue[categoryQueue.length.sub(1)].startPeriod
+        ).add(1);
+
+        NonCompetingProposal memory p = NonCompetingProposal({
+            id: c.lastProposalId,
+            proposer: msg.sender,
+            startPeriod: startPeriod,
+            details: details,
+            yesVotes: 0,
+            noVotes: 0,
+            processed: false,
+            didPass: false
+        });
+
+        categoryNonCompetingProposals[categoryId].push(p);
+
     }
 
     function getCategoriesLength() public view returns(uint256) {
@@ -240,8 +286,8 @@ contract CategoryVoting is ITokenTransferLimiter {
         return x >= y ? x : y;
     }
 
-    function getCurrentPeriod() public view returns (uint256) {
-        return now.sub(creationTime).div(periodDuration);
+    function getCurrentPeriod(uint periodLength) public view returns (uint256) {
+        return now.sub(creationTime).div(periodLength);
     }
 
 }

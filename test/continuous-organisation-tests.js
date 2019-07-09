@@ -25,7 +25,7 @@ describe('Continuous Organisation Contract', () => {
 
     let CODAIInstance;
     let coTokenInstance;
-    let tokenSQRTInstance;
+    let votingContractInstance;
 
     let coInstance;
 
@@ -35,9 +35,11 @@ describe('Continuous Organisation Contract', () => {
         beforeEach(async () => {
             CODAIInstance = await contractInitializator.deployCODAI();
 
-            coInstance = await contractInitializator.deployContinuousOrganisation(CODAIInstance);
+            coTokenInstance = await contractInitializator.deployCOToken();
 
-            coTokenInstance = await contractInitializator.getCoToken(coInstance, INVESTOR);
+            votingContractInstance = await contractInitializator.deployVotingContract(coTokenInstance.contractAddress);
+
+            coInstance = await contractInitializator.deployContinuousOrganisation(CODAIInstance, votingContractInstance, coTokenInstance);
 
             // Mint and Approve 500 DAI in order to unlock the organization
             await contractInitializator.mintDAI(CODAIInstance, OWNER.address, UNLOCK_AMOUNT);
@@ -60,25 +62,25 @@ describe('Continuous Organisation Contract', () => {
 
             beforeEach(async () => {
 
-                tokenSQRTInstance = await contractInitializator.deployTokenSQRT();
+
 
             });
 
             it('Should unlock the organisation', async () => {
                 let expectedBalance = "100000000000000000000"; // 20% from 500 DAI = 100 DAI
 
-                await coInstance.unlockOrganisation(UNLOCK_AMOUNT, UNLOCK_MINT, tokenSQRTInstance.contractAddress);
+                await coInstance.unlockOrganisation(UNLOCK_AMOUNT, UNLOCK_MINT);
                 let organisationBalance = await CODAIInstance.balanceOf(coInstance.contractAddress);
                 assert(organisationBalance.eq(expectedBalance), 'Organisation balance is incorrect after unlocking');
             });
 
             it('Should throw on re-unlocking', async () => {
-                await coInstance.unlockOrganisation(UNLOCK_AMOUNT, UNLOCK_MINT, tokenSQRTInstance.contractAddress);
-                await assert.revert(coInstance.unlockOrganisation(UNLOCK_AMOUNT, UNLOCK_MINT, tokenSQRTInstance.contractAddress), 'Re-unlocking of an organisation did not throw');
+                await coInstance.unlockOrganisation(UNLOCK_AMOUNT, UNLOCK_MINT);
+                await assert.revert(coInstance.unlockOrganisation(UNLOCK_AMOUNT, UNLOCK_MINT), 'Re-unlocking of an organisation did not throw');
             });
 
             it('Should throw if an unlocker tries to unlock with unapproved DAI amount', async () => {
-                await assert.revert(coInstance.unlockOrganisation(DOUBLE_UNLOCK_AMOUNT, UNLOCK_MINT, tokenSQRTInstance.contractAddress), 'Organisation has been unlocked with unapproved DAI amount');
+                await assert.revert(coInstance.unlockOrganisation(DOUBLE_UNLOCK_AMOUNT, UNLOCK_MINT), 'Organisation has been unlocked with unapproved DAI amount');
             });
 
             it('Should throw if one tries to invest in non-unlocked organisation', async () => {
@@ -88,8 +90,8 @@ describe('Continuous Organisation Contract', () => {
 
         describe('Investment', function () {
             beforeEach(async () => {
-                tokenSQRTInstance = await contractInitializator.deployTokenSQRT();
-                await coInstance.unlockOrganisation(UNLOCK_AMOUNT, UNLOCK_MINT, tokenSQRTInstance.contractAddress);
+                votingContractInstance = await contractInitializator.deployTokenSQRT();
+                await coInstance.unlockOrganisation(UNLOCK_AMOUNT, UNLOCK_MINT);
                 await coInstance.from(INVESTOR).invest(INVESTMENT_AMOUNT, {
                     gasLimit: 300000
                 });
@@ -119,7 +121,7 @@ describe('Continuous Organisation Contract', () => {
 
             it('Should receive correct invest amount', async () => {
                 const EXPECTED_INVESTMENTS_AMOUNT = '501000000000000000000'; // 501 DAI
-                let totalDAIInvestments = await coInstance.totalInvestmentsAndDividents();
+                let totalDAIInvestments = await coInstance.totalInvestmentsAndDividends();
                 assert(totalDAIInvestments.eq(EXPECTED_INVESTMENTS_AMOUNT), 'Incorrect investments amount after investment');
             });
 
@@ -133,8 +135,8 @@ describe('Continuous Organisation Contract', () => {
         describe('Exit Investment', function () {
 
             beforeEach(async () => {
-                tokenSQRTInstance = await contractInitializator.deployTokenSQRT();
-                await coInstance.unlockOrganisation(UNLOCK_AMOUNT, UNLOCK_MINT, tokenSQRTInstance.contractAddress);
+                votingContractInstance = await contractInitializator.deployTokenSQRT();
+                await coInstance.unlockOrganisation(UNLOCK_AMOUNT, UNLOCK_MINT);
                 await coInstance.from(INVESTOR).invest(INVESTMENT_AMOUNT, {
                     gasLimit: 300000
                 });
@@ -148,7 +150,7 @@ describe('Continuous Organisation Contract', () => {
 
                 let expectedDai = sellCalc(organisationCoTokenBalance, reserveBalance, coTokens);
 
-                await coTokenInstance.approve(coInstance.contractAddress, coTokens);
+                await coTokenInstance.from(INVESTOR).approve(coInstance.contractAddress, coTokens);
                 await coInstance.from(INVESTOR).exit(coTokens);
 
 
@@ -165,7 +167,7 @@ describe('Continuous Organisation Contract', () => {
 
                 let daiBalance = await CODAIInstance.balanceOf(INVESTOR.address);
 
-                await coTokenInstance.approve(coInstance.contractAddress, coTokens);
+                await coTokenInstance.from(INVESTOR).approve(coInstance.contractAddress, coTokens);
                 await coInstance.from(INVESTOR).exit(coTokens);
 
                 daiBalance = await CODAIInstance.balanceOf(INVESTOR.address);
@@ -186,7 +188,7 @@ describe('Continuous Organisation Contract', () => {
                     gasLimit: 300000
                 });
 
-                await coTokenInstance.approve(coInstance.contractAddress, coTokens);
+                await coTokenInstance.from(INVESTOR).approve(coInstance.contractAddress, coTokens);
                 await coInstance.from(INVESTOR).exit(coTokens);
 
                 daiBalance = await CODAIInstance.balanceOf(INVESTOR.address);
@@ -206,11 +208,11 @@ describe('Continuous Organisation Contract', () => {
             });
         })
 
-        describe('Paying dividents', function () {
+        describe('Paying dividends', function () {
 
             beforeEach(async () => {
-                tokenSQRTInstance = await contractInitializator.deployTokenSQRT();
-                await coInstance.unlockOrganisation(UNLOCK_AMOUNT, UNLOCK_MINT, tokenSQRTInstance.contractAddress);
+                votingContractInstance = await contractInitializator.deployTokenSQRT();
+                await coInstance.unlockOrganisation(UNLOCK_AMOUNT, UNLOCK_MINT);
                 await coInstance.from(INVESTOR).invest(INVESTMENT_AMOUNT, {
                     gasLimit: 300000
                 });
@@ -219,49 +221,49 @@ describe('Continuous Organisation Contract', () => {
                 await contractInitializator.approveDAI(CODAIInstance, REPAYER.address, coInstance.contractAddress, ONE_ETH);
             });
 
-            it('Should lower COToken returned on investment after paying dividents', async () => {
+            it('Should lower COToken returned on investment after paying dividends', async () => {
 
                 const coTokensPerInvestmentBefore = await coInstance.COTokensForInvestment(INVESTMENT_AMOUNT);
 
-                await coInstance.from(REPAYER).payDividents(ONE_ETH, {
+                await coInstance.from(REPAYER).payDividends(ONE_ETH, {
                     gasLimit: 300000
                 });
 
                 const coTokensPerInvestmentAfter = await coInstance.COTokensForInvestment(INVESTMENT_AMOUNT);
 
-                assert(coTokensPerInvestmentAfter.lt(coTokensPerInvestmentBefore), "The tokens received after dividents repayment were not less than before")
+                assert(coTokensPerInvestmentAfter.lt(coTokensPerInvestmentBefore), "The tokens received after dividends repayment were not less than before")
 
             });
 
-            it('Should receive more DAI on COToken exit after paying dividents', async () => {
+            it('Should receive more DAI on COToken exit after paying dividends', async () => {
 
                 let coTokens = await coTokenInstance.balanceOf(INVESTOR.address);
 
                 const DAIReturnedForInvestmentBefore = await coInstance.DAIOnExit(coTokens)
 
-                await coInstance.from(REPAYER).payDividents(ONE_ETH, {
+                await coInstance.from(REPAYER).payDividends(ONE_ETH, {
                     gasLimit: 300000
                 });
 
-                await coTokenInstance.approve(coInstance.contractAddress, coTokens);
+                await coTokenInstance.from(INVESTOR).approve(coInstance.contractAddress, coTokens);
                 await coInstance.from(INVESTOR).exit(coTokens);
 
                 const DAIReturnedForInvestmentAfter = await coInstance.DAIOnExit(coTokens)
 
-                assert(DAIReturnedForInvestmentAfter.gt(DAIReturnedForInvestmentBefore), "The DAI received after exit was not more than before dividents payout")
+                assert(DAIReturnedForInvestmentAfter.gt(DAIReturnedForInvestmentBefore), "The DAI received after exit was not more than before dividends payout")
 
             });
 
             it('Should revert if one tries to repay with unapproved DAI', async () => {
                 await contractInitializator.mintDAI(CODAIInstance, REPAYER.address, ONE_ETH);
-                await assert.revert(coInstance.from(REPAYER).payDividents(TWO_ETH, {
+                await assert.revert(coInstance.from(REPAYER).payDividends(TWO_ETH, {
                     gasLimit: 300000
                 }));
 
             });
 
             it("Should revert if one tries to repay DAI that he doesn't have", async () => {
-                await assert.revert(coInstance.from(REPAYER).payDividents(TWO_ETH, {
+                await assert.revert(coInstance.from(REPAYER).payDividends(TWO_ETH, {
                     gasLimit: 300000
                 }));
             });

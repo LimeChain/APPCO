@@ -1,9 +1,7 @@
 pragma solidity ^0.5.4;
 
 import "./Math/BondingMathematics.sol";
-import "./Tokens/COToken.sol";
-import "./ITokenTransferLimiter.sol";
-import "./Voting/CategoryVoting.sol";
+import "./Tokens/ICOToken.sol";
 import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 
@@ -13,11 +11,11 @@ contract ContinuousOrganisation { // TODO this should probably not be ownable
     
     BondingMathematics public bondingMath;
     ERC20 public approvedToken; // Ex. DAI
-    COToken public coToken;
+    ICOToken public coToken;
     address public votingContract;
-    uint256 public totalInvestmentsAndDividents = 0;
+    uint256 public totalInvestmentsAndDividends = 0;
     
-    uint256 constant public RESERVE_DIVIDOR = 5; // Means that it will leave 1/5 (20%) in the reserve // 1 CO Token
+    uint256 constant public RESERVE_DIVIDER = 5; // Means that it will leave 1/5 (20%) in the reserve // 1 CO Token
 
     event Invest(address investor, uint256 amount);
     event Exit(address investor, uint256 amount);
@@ -26,32 +24,39 @@ contract ContinuousOrganisation { // TODO this should probably not be ownable
     
     constructor(
         address _bondingMath,
-        address _approvedToken) public {
+        address _approvedToken,
+        address _coToken,
+        address _categoryVoting) public {
         
         require(_approvedToken != address(0), "constructor:: approved token address is required");
         require(_bondingMath != address(0), "constructor:: Bonding Math address is required");
+        require(_coToken != address(0), "constructor:: COToken address is required");
+        require(_categoryVoting != address(0), "constructor:: CategoryVoting address is required");
         
 
-        coToken = new COToken();
+        coToken = ICOToken(_coToken);
         
         approvedToken = ERC20(_approvedToken);
         
         bondingMath = BondingMathematics(_bondingMath);
+
+        votingContract = _categoryVoting;
+        coToken.setTokenLimiter(_categoryVoting);
     }
     
     function invest(uint256 investAmount) public {
-        require(totalInvestmentsAndDividents > 0, "invest:: Organisation is not unlocked for investments yet");
+        require(totalInvestmentsAndDividends > 0, "invest:: Organisation is not unlocked for investments yet");
         require(approvedToken.allowance(msg.sender, address(this)) >= investAmount, "invest:: Investor tries to invest with unapproved amount");
 
         uint256 coTokensToMint = COTokensForInvestment(investAmount);
 
-        uint256 reserveAmount = investAmount.div(RESERVE_DIVIDOR);
+        uint256 reserveAmount = investAmount.div(RESERVE_DIVIDER);
         approvedToken.transferFrom(msg.sender, address(this), reserveAmount);
         approvedToken.transferFrom(msg.sender, votingContract, investAmount.sub(reserveAmount));
 
         coToken.mint(msg.sender, coTokensToMint);
 
-        totalInvestmentsAndDividents = totalInvestmentsAndDividents.add(investAmount);
+        totalInvestmentsAndDividends = totalInvestmentsAndDividends.add(investAmount);
 
         emit Invest(msg.sender, investAmount);
     }
@@ -62,7 +67,7 @@ contract ContinuousOrganisation { // TODO this should probably not be ownable
         uint256 returnAmount = bondingMath.calcTokenSell(coToken.totalSupply(), approvedToken.balanceOf(address(this)), coTokenAmount);
         
         approvedToken.transfer(msg.sender, returnAmount);
-        totalInvestmentsAndDividents = totalInvestmentsAndDividents.sub(returnAmount);
+        totalInvestmentsAndDividends = totalInvestmentsAndDividends.sub(returnAmount);
         
         coToken.burnFrom(msg.sender, coTokenAmount);
 
@@ -70,7 +75,7 @@ contract ContinuousOrganisation { // TODO this should probably not be ownable
     }
     
     function COTokensForInvestment(uint256 investAmount) public view returns(uint256) {
-        uint256 tokensAfterPurchase = bondingMath.calcPurchase(coToken.totalSupply(), totalInvestmentsAndDividents, investAmount);
+        uint256 tokensAfterPurchase = bondingMath.calcPurchase(coToken.totalSupply(), totalInvestmentsAndDividends, investAmount);
         return tokensAfterPurchase.sub(coToken.totalSupply());
     }
 
@@ -78,37 +83,32 @@ contract ContinuousOrganisation { // TODO this should probably not be ownable
         return bondingMath.calcTokenSell(coToken.totalSupply(), approvedToken.balanceOf(address(this)), coTokenAmount);
     }
 
-    function unlockOrganisation(uint256 investAmount, uint256 mintedCOTokens, address _tokenSQRT) public {
-        require(_tokenSQRT != address(0), "constructor:: token sqrt address is required");
+    function unlockOrganisation(uint256 investAmount, uint256 mintedCOTokens) public {
 
-        CategoryVoting _categoryVoting = new CategoryVoting(address(coToken), _tokenSQRT);
-        votingContract = address(_categoryVoting);
-        coToken.setTokenLimiter(ITokenTransferLimiter(votingContract));
-
-        require(totalInvestmentsAndDividents == 0, "unlockOrganisation:: Organization is already unlocked");
+        require(totalInvestmentsAndDividends == 0, "unlockOrganisation:: Organization is already unlocked");
         require(approvedToken.allowance(msg.sender, address(this)) >= investAmount, "unlockOrganisation:: Unlocker tries to unlock with unapproved amount");
         coToken.mint(msg.sender, mintedCOTokens);
 
-        uint256 reserveAmount = investAmount.div(RESERVE_DIVIDOR);
+        uint256 reserveAmount = investAmount.div(RESERVE_DIVIDER);
         approvedToken.transferFrom(msg.sender, address(this), reserveAmount);
         approvedToken.transferFrom(msg.sender, votingContract, investAmount.sub(reserveAmount));
         
-        totalInvestmentsAndDividents = investAmount;
+        totalInvestmentsAndDividends = investAmount;
         
         emit UnlockOrganisation(msg.sender, investAmount);
     }
 
-    function payDividents(uint256 dividentAmount)  public {
-        require(totalInvestmentsAndDividents > 0, "payDividents:: Organisation is not unlocked for dividents payment yet");
-        require(approvedToken.allowance(msg.sender, address(this)) >= dividentAmount, "payDividents:: payer tries to pay with unapproved amount");
+    function payDividends(uint256 dividentAmount)  public {
+        require(totalInvestmentsAndDividends > 0, "payDividends:: Organisation is not unlocked for dividends payment yet");
+        require(approvedToken.allowance(msg.sender, address(this)) >= dividentAmount, "payDividends:: payer tries to pay with unapproved amount");
 
 
-        uint256 reserveAmount = dividentAmount.div(RESERVE_DIVIDOR);
+        uint256 reserveAmount = dividentAmount.div(RESERVE_DIVIDER);
         approvedToken.transferFrom(msg.sender, address(this), reserveAmount);
         approvedToken.transferFrom(msg.sender, votingContract, dividentAmount.sub(reserveAmount));
 
 
-        totalInvestmentsAndDividents = totalInvestmentsAndDividents.add(dividentAmount);
+        totalInvestmentsAndDividends = totalInvestmentsAndDividends.add(dividentAmount);
 
         emit DividentPayed(msg.sender, dividentAmount);
     }

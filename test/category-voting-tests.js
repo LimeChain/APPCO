@@ -131,7 +131,7 @@ describe('Category Voting Contract', function () {
 			assert(balanceAfter.eq(0), "CO Token was not deposited (it should be 0)")
 
 			const categoryProposal = await categoryVotingContract.categoryProposalsQueue(0);
-			const currentPeriod = await categoryVotingContract.getCurrentPeriod();
+			const currentPeriod = await categoryVotingContract.getCurrentPeriod(ONE_PERIOD);
 
 			assert(categoryProposal.id.eq(lastProposalId), 'The last proposal id was not set correctly');
 			assert(categoryProposal.votingType == VOTING_TYPE, 'The voting type was not set correctly');

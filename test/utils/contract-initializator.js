@@ -9,59 +9,76 @@ const TokensSQRT = require('./../../build/TokensSQRT.json');
 const CategoryVoting = require('./../../build/CategoryVoting');
 
 const deployerWallet = accounts[0].signer;
-const CO_BANK = accounts[9].signer.address;
 
 const deployer = new etherlime.EtherlimeGanacheDeployer();
-deployer.setDefaultOverrides({ gasLimit: 4700000, gasPrice: 9000000000 })
+deployer.setDefaultOverrides({ gasLimit: 4700000 })
 
 
-let deployContinuousOrganisation = async (mglDai) => {
+let deployContinuousOrganisation = async (mglDai, votingContractInstance, coTokenInstance) => {
 
-    let bondingMathematicsInstance = await deployBondingMath();
+        let bondingMathematicsInstance = await deployBondingMath();
 
-    return deployer.deploy(ContinuousOrganisation, {},
-        bondingMathematicsInstance.contractAddress,
-        mglDai.contractAddress);
+        const coContract = await deployer.deploy(ContinuousOrganisation, {},
+                bondingMathematicsInstance.contractAddress,
+                mglDai.contractAddress,
+                coTokenInstance.contractAddress,
+                votingContractInstance.contractAddress);
+
+        await coTokenInstance.addMinter(coContract.contractAddress);
+        await coTokenInstance.renounceMinter();
+
+        return coContract;
 };
 
+let deployVotingContract = async (coTokenAddress) => {
+        const tokenSqrtContract = await deployTokenSQRT();
+
+        return deployer.deploy(CategoryVoting, {}, coTokenAddress, tokenSqrtContract.contractAddress);
+}
+
 let deployTokenSQRT = async () => {
-    return deployer.deploy(TokensSQRT, {});
+        return deployer.deploy(TokensSQRT, {});
 };
 
 let deploySQRT = async () => {
-    return deployer.deploy(SQRT);
+        return deployer.deploy(SQRT);
 };
 
 let getCoToken = async (COInstance, wallet) => {
 
-    let coTokenAddress = await COInstance.coToken();
-    let coTokenContract = new ethers.Contract(coTokenAddress, COToken.abi, deployerWallet.provider);
-
-    return coTokenContract.connect(wallet);
+        let coTokenAddress = await COInstance.coToken();
+        let coTokenContract = new ethers.Contract(coTokenAddress, COToken.abi, deployerWallet.provider);
+        return coTokenContract.connect(wallet);
 };
 
 let deployBondingMath = async () => {
-    let sqrtContractAddress = await deploySQRT();
-    return deployer.deploy(BondingMathematics, {}, sqrtContractAddress.contractAddress);
+        let sqrtContractAddress = await deploySQRT();
+        return deployer.deploy(BondingMathematics, {}, sqrtContractAddress.contractAddress);
 };
 
 let deployCODAI = async () => {
-    return deployer.deploy(CODAI);
+        return deployer.deploy(CODAI);
+};
+
+let deployCOToken = async () => {
+        return deployer.deploy(COToken);
 };
 
 let mintDAI = async (CODAIInstance, to, amount) => {
-    await CODAIInstance.mint(to, amount)
+        await CODAIInstance.mint(to, amount)
 };
 
 let approveDAI = async (CODAIInstance, approver, to, amount) => {
-    await CODAIInstance.from(approver).approve(to, amount)
+        await CODAIInstance.from(approver).approve(to, amount)
 };
 
 module.exports = {
-    getCoToken,
-    mintDAI,
-    approveDAI,
-    deployContinuousOrganisation,
-    deployCODAI,
-    deployTokenSQRT
-};
+        getCoToken,
+        mintDAI,
+        approveDAI,
+        deployContinuousOrganisation,
+        deployCODAI,
+        deployTokenSQRT,
+        deployVotingContract,
+        deployCOToken
+}

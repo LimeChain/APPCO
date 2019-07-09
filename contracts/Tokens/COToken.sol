@@ -3,20 +3,21 @@ pragma solidity ^0.5.3;
 import "openzeppelin-solidity/contracts/token/ERC20/ERC20Mintable.sol";
 import "openzeppelin-solidity/contracts/token/ERC20/ERC20Burnable.sol";
 import "./../ITokenTransferLimiter.sol";
+import "./ICOToken.sol";
 
 
-contract COToken is ERC20Mintable, ERC20Burnable  {
+contract COToken is ICOToken, ERC20Mintable, ERC20Burnable  {
 
     ITokenTransferLimiter public tokenTransferLimiter;
 
-    function setTokenLimiter(ITokenTransferLimiter _tokenTransferLimiter) public {
+    function setTokenLimiter(address _tokenTransferLimiter) public {
         require(address(tokenTransferLimiter) == address(0x0), "Token Limiter already set");
-        tokenTransferLimiter = _tokenTransferLimiter;
+        tokenTransferLimiter = ITokenTransferLimiter(_tokenTransferLimiter);
     }
 
-    function changeTokenLimiter(ITokenTransferLimiter _tokenTransferLimiter) public {
+    function changeTokenLimiter(address _tokenTransferLimiter) public {
         require(address(tokenTransferLimiter) == msg.sender, "Token Limiter can only be changed from the token limiter");
-        tokenTransferLimiter = _tokenTransferLimiter;
+        tokenTransferLimiter = ITokenTransferLimiter(_tokenTransferLimiter);
     }
 
     function transfer(address to, uint256 value) public returns (bool) {

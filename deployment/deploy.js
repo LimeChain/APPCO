@@ -3,7 +3,7 @@ const etherlime = require('etherlime-lib');
 
 const DAIToken = require('./../build/CODAI');
 const COToken = require('./../build/COToken');
-const Voting = require('./../build/Voting')
+const CategoryVoting = require('./../build/CategoryVoting')
 const BondingMath = require('./../build/BondingMathematics');
 const ContinuousOrganisation = require('./../build/ContinuousOrganisation');
 const BondingSQRT = require('./../build/SQRT.json');
@@ -33,20 +33,15 @@ const deploy = async (network, secret) => {
     const deployer = getDeployer(ENV.LOCAL, secret);
     const daiContract = await getDAIContract(deployer);
 
-    const cOrganisation = await deployContinuousOrganisation(deployer, daiContract.contractAddress);
+    const coToken = await deployer.deploy(COToken, {});
 
-    const coToken = await cOrganisation.coToken();
+    const votingContract = await deployCategoryVoting(deployer, coToken);
 
-    const votingContract = await deployVoting(deployer, coToken);
+    const cOrganisation = await deployContinuousOrganisation(deployer, daiContract.address, votingContract.contractAddress, coToken);
 
-    const coTokenContract = await etherlime.ContractAt(COToken, coToken, deployer.signer);
-    const setTLtx = await coTokenContract.contract.setTokenLimiter(votingContract.contractAddress);
-    await coTokenContract.verboseWaitForTransaction(setTLtx, "Setting Token Limitter Transaction")
-
-
-    const approveTx = await daiContract.contract.approve(cOrganisation.contractAddress, UNLOCK_AMOUNT);
-    await daiContract.verboseWaitForTransaction(approveTx, "Approve Unlock Transaction")
-    const unlockTx = await cOrganisation.contract.unlockOrganisation(UNLOCK_AMOUNT, UNLOCK_MINT);
+    const approveTx = await daiContract.approve(cOrganisation.contractAddress, UNLOCK_AMOUNT);
+    await cOrganisation.verboseWaitForTransaction(approveTx, "Approve Unlock Transaction")
+    const unlockTx = await cOrganisation.unlockOrganisation(UNLOCK_AMOUNT, UNLOCK_MINT);
     await cOrganisation.verboseWaitForTransaction(unlockTx, "Unlock Transaction")
 
 };
@@ -65,7 +60,7 @@ let getDAIContract = async function (deployer) {
         let daiContractDeployed = await deployer.deploy(DAIToken, {});
         await daiContractDeployed.mint(deployer.signer.address, UNLOCK_AMOUNT);
 
-        return daiContractDeployed;
+        return daiContractDeployed.contract;
     }
 
     return new ethers.Contract(DAI_TOKEN_ADDRESS, DAIToken.abi, deployer.signer);
@@ -76,7 +71,7 @@ let deployDAIExchange = async function (deployer, daiToken) {
     return exchangeContractDeployed;
 }
 
-let deployContinuousOrganisation = async function (deployer, daiToken) {
+let deployContinuousOrganisation = async function (deployer, daiToken, votingContract, coTokenContract) {
 
     // Deploy Organization Bonding SQRT Math
     const bondingSQRTContract = await deployer.deploy(BondingSQRT, {});
@@ -90,29 +85,26 @@ let deployContinuousOrganisation = async function (deployer, daiToken) {
     const coContract = await deployer.deploy(ContinuousOrganisation, {},
         bondingMathContractDeployed.contractAddress,
         daiToken,
-        CO_BANK
+        coTokenContract.contractAddress,
+        votingContract
     );
+
+    const transferOwnershipTx = await coTokenContract.addMinter(coContract.contractAddress);
+    coContract.verboseWaitForTransaction(transferOwnershipTx, "Adding CO as a minter")
+
+    const renounceMintingPrivilige = await coTokenContract.renounceMinter();
+    coContract.verboseWaitForTransaction(renounceMintingPrivilige, "removing deployer as minter")
 
     return coContract;
 }
 
-let deployVoting = async function (deployer, votingToken) {
-
-    const MOVIES = [
-        '0x4d6f766965310000000000000000000000000000000000000000000000000000', // Movie1
-        '0x4d6f766965320000000000000000000000000000000000000000000000000000', // Movie2
-        '0x4d6f766965330000000000000000000000000000000000000000000000000000', // Movie3
-        '0x4d6f766965340000000000000000000000000000000000000000000000000000', // Movie4
-        '0x4d6f766965350000000000000000000000000000000000000000000000000000'  // Movie5
-    ];
-
+let deployCategoryVoting = async function (deployer, votingToken) {
 
     // Deploy Token SQRT Math
     const tokenSQRTContract = await deployer.deploy(TokensSQRT, {});
 
 
-    // Deploy Voting
-    const votingContractDeployed = await deployer.deploy(Voting, {}, votingToken, MOVIES, tokenSQRTContract.contractAddress);
+    const votingContractDeployed = await deployer.deploy(CategoryVoting, {}, votingToken.contractAddress, tokenSQRTContract.contractAddress);
     return votingContractDeployed;
 }
 
