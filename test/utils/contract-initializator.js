@@ -14,13 +14,13 @@ const deployer = new etherlime.EtherlimeGanacheDeployer();
 deployer.setDefaultOverrides({ gasLimit: 4700000 })
 
 
-let deployContinuousOrganisation = async (mglDai, votingContractInstance, coTokenInstance) => {
+let deployContinuousOrganisation = async (COTokenDai, votingContractInstance, coTokenInstance) => {
 
         let bondingMathematicsInstance = await deployBondingMath();
 
         const coContract = await deployer.deploy(ContinuousOrganisation, {},
                 bondingMathematicsInstance.contractAddress,
-                mglDai.contractAddress,
+                COTokenDai.contractAddress,
                 coTokenInstance.contractAddress,
                 votingContractInstance.contractAddress);
 

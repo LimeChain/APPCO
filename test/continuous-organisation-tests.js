@@ -2,7 +2,9 @@ const etherlime = require('etherlime-lib');
 const { buyCalc, sellCalc } = require('./utils/token-price-calculation');
 const contractInitializator = require('./utils/contract-initializator');
 
-describe('Continuous Organisation Contract', () => {
+describe('Continuous Organisation Contract', function () {
+
+    this.timeout(20000);
 
     const deployer = new etherlime.EtherlimeGanacheDeployer();
 

@@ -62,7 +62,7 @@ contract ContinuousOrganisation { // TODO this should probably not be ownable
     }
     
     function exit(uint256 coTokenAmount) public {
-        require(coToken.allowance(msg.sender, address(this)) >= coTokenAmount, "exit:: Investor wants to Exit MGL without allowance");
+        require(coToken.allowance(msg.sender, address(this)) >= coTokenAmount, "exit:: Investor wants to Exit COToken without allowance");
         
         uint256 returnAmount = bondingMath.calcTokenSell(coToken.totalSupply(), approvedToken.balanceOf(address(this)), coTokenAmount);
         
