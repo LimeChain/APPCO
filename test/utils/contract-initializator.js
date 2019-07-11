@@ -30,10 +30,10 @@ let deployContinuousOrganisation = async (COTokenDai, votingContractInstance, co
         return coContract;
 };
 
-let deployVotingContract = async (coTokenAddress) => {
+let deployVotingContract = async (coTokenAddress, daiTokenAddress) => {
         const tokenSqrtContract = await deployTokenSQRT();
 
-        return deployer.deploy(CategoryVoting, {}, coTokenAddress, tokenSqrtContract.contractAddress);
+        return deployer.deploy(CategoryVoting, {}, coTokenAddress, tokenSqrtContract.contractAddress, daiTokenAddress);
 }
 
 let deployTokenSQRT = async () => {

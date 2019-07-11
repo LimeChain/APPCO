@@ -3,6 +3,7 @@ pragma solidity ^0.5.3;
 import "./../Math/Convert.sol";
 import "./../Tokens/ICOToken.sol";
 import "./../ITokenTransferLimiter.sol";
+import "openzeppelin-solidity/contracts/token/ERC20/IERC20.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 
 contract CategoryVoting is ITokenTransferLimiter {
@@ -27,6 +28,7 @@ contract CategoryVoting is ITokenTransferLimiter {
 
     address public sqrtInstance;
     ICOToken public votingToken;
+    IERC20 public paymentToken;
 
     uint256 public constant proposerDeposit = 10**18; // 1 COToken
     uint256 public constant memberBalanceTreshold = 10**18;
@@ -80,6 +82,7 @@ contract CategoryVoting is ITokenTransferLimiter {
         address proposer;
         uint256 startPeriod;
         bytes32 details;
+        uint256 requestedAmount;
         uint256 yesVotes;
         uint256 noVotes;
         bool processed;
@@ -99,34 +102,39 @@ contract CategoryVoting is ITokenTransferLimiter {
     event CategoryVote(uint256 proposalId, address voter, uint8 vote);
     event CategoryFinalised(uint256 proposalId, bool didPass);
 
+    event NonCompetingProposed(uint256 categoryId, uint256 proposalId, address proposer);
+    event NonCompetingVote(uint256 categoryId, uint256 proposalId, address voter, uint8 vote);
+    event NonCompetingFinalised(uint256 categoryId, uint256 proposalId, bool didPass);
+
     modifier onlyMember {
-        require(votingToken.balanceOf(msg.sender) >= memberBalanceTreshold, "AppDAO :: onlyMember - not enough balance");
+        require(votingToken.balanceOf(msg.sender) >= memberBalanceTreshold, "onlyMember :: onlyMember - not enough balance");
         _;
     }
     
 
-    constructor(address votingTokenContract, address sqrtContract) public {
-        require(sqrtContract != address(0), "SQRT contract could not be an empty address");
-        require(votingTokenContract != address(0), "Proposal token contract could be an empty address");
+    constructor(address votingTokenContract, address sqrtContract, address _paymentToken) public {
+        require(sqrtContract != address(0), "constructor::SQRT contract could not be an empty address");
+        require(votingTokenContract != address(0), "constructor::Proposal token contract could be an empty address");
+        require(_paymentToken != address(0), "constructor::Proposal token contract could be an empty address");
         creationTime = now;
 
         sqrtInstance = sqrtContract;
         votingToken = ICOToken(votingTokenContract);
+        paymentToken = IERC20(_paymentToken);
     }
 
     function proposeCategory(uint8 votingType, bytes32 name, bytes32 details, uint256 votingPeriodLength) public {
         require(votingType > 0 && votingType < 3, "proposeCategory :: invalid voting type");
         require(name != "", "proposeCategory :: invalid name");
         require(details != "", "proposeCategory :: invalid details");
-        require(votingPeriodLength > 0, "proposeCategory :: votingPeriodLenght less than 0");
-        require(votingToken.balanceOf(msg.sender) >= proposerDeposit, "proposeCategory :: not enough balance for depositing");
+        require(votingPeriodLength > 0, "proposeCategory :: votingPeriodLength less than 0");
+        votingToken.transferFrom(msg.sender, address(this), proposerDeposit);
 
         lastCategoryProposalId++;
 
-        votingToken.transferFrom(msg.sender, address(this), proposerDeposit);
 
         uint256 startPeriod = max(
-            getCurrentPeriod(periodDuration),
+            getCurrentPeriod(),
             categoryProposalsQueue.length == 0 ? 0 : categoryProposalsQueue[categoryProposalsQueue.length.sub(1)].startPeriod
         ).add(1);
 
@@ -146,7 +154,7 @@ contract CategoryVoting is ITokenTransferLimiter {
 
         categoryProposalsQueue.push(cp);
 
-        uint256 endTimestamp = calculateProposalEndTimestamp(cp);
+        uint256 endTimestamp = calculateProposalEndTimestamp(startPeriod, categoryVotingPeriodLength);
 
         updateMoveLockIn(msg.sender, endTimestamp);
 
@@ -158,7 +166,7 @@ contract CategoryVoting is ITokenTransferLimiter {
         require(_vote > 0 && _vote < 3, "voteCategory :: invalid vote");
 
         CategoryProposal storage cp = categoryProposalsQueue[categoryProposalId.sub(1)];
-        uint256 currentPeriod = getCurrentPeriod(periodDuration);
+        uint256 currentPeriod = getCurrentPeriod();
 
         require(currentPeriod >= cp.startPeriod, "voteCategory :: proposal voting has not started");
         require(currentPeriod <= (cp.startPeriod.add(categoryVotingPeriodLength)), "voteCategory :: proposal voting period has finished");
@@ -177,7 +185,7 @@ contract CategoryVoting is ITokenTransferLimiter {
             cp.noVotes = cp.noVotes.add(votes);
         }
 
-        uint256 endTimestamp = calculateProposalEndTimestamp(cp);
+        uint256 endTimestamp = calculateProposalEndTimestamp(cp.startPeriod, categoryVotingPeriodLength);
 
         updateMoveLockIn(msg.sender, endTimestamp);
 
@@ -188,7 +196,7 @@ contract CategoryVoting is ITokenTransferLimiter {
         require(categoryProposalId > 0 && categoryProposalId <= lastCategoryProposalId, "voteCategory :: invalid category proposal id");
 
         CategoryProposal storage cp = categoryProposalsQueue[categoryProposalId.sub(1)];
-        uint256 currentPeriod = getCurrentPeriod(periodDuration);
+        uint256 currentPeriod = getCurrentPeriod();
 
         require(currentPeriod > (cp.startPeriod.add(categoryVotingPeriodLength)), "voteCategory :: proposal voting period has finished");
 
@@ -216,16 +224,21 @@ contract CategoryVoting is ITokenTransferLimiter {
         emit CategoryFinalised(categoryProposalId, cp.didPass);
     }
 
-    function proposeNonCompeting(uint256 categoryId, bytes32 details) public {
+    function proposeNonCompeting(uint256 categoryId, bytes32 details, uint requestedAmount) public {
+        require(categoryId < categories.length, "proposeNonCompeting :: invalid category");
         require(votingToken.balanceOf(msg.sender) >= proposerDeposit, "proposeNonCompeting :: not enough balance for depositing");
+        require(details != "", "proposeNonCompeting :: invalid details");
+        votingToken.transferFrom(msg.sender, address(this), proposerDeposit);
+        
 
-        Category memory c = categories[categoryId];
+        Category storage c = categories[categoryId];
+        require(c.votingType == VOTING_TYPE.Noncompeting, "proposeNonCompeting :: proposing non competing offer in competing category");
         c.lastProposalId++;
 
-        NonCompetingProposal[] memory categoryQueue = categoryNonCompetingProposals[categoryId];
+        NonCompetingProposal[] storage categoryQueue = categoryNonCompetingProposals[categoryId];
 
         uint256 startPeriod = max(
-            getCurrentPeriod(c.votingPeriodLength),
+            getCurrentPeriod(),
             categoryQueue.length == 0 ? 0 : categoryQueue[categoryQueue.length.sub(1)].startPeriod
         ).add(1);
 
@@ -234,26 +247,97 @@ contract CategoryVoting is ITokenTransferLimiter {
             proposer: msg.sender,
             startPeriod: startPeriod,
             details: details,
+            requestedAmount: requestedAmount,
             yesVotes: 0,
             noVotes: 0,
             processed: false,
             didPass: false
         });
 
-        categoryNonCompetingProposals[categoryId].push(p);
+        categoryQueue.push(p);
 
+        uint256 endTimestamp = calculateProposalEndTimestamp(startPeriod, c.votingPeriodLength);
+
+        updateMoveLockIn(msg.sender, endTimestamp);
+
+        emit NonCompetingProposed(categoryId, c.lastProposalId, msg.sender);
+
+    }
+
+    function voteNonCompeting(uint256 categoryId, uint256 proposalId, uint8 _vote) public onlyMember {
+        require(categoryId < categories.length, "voteNonCompeting :: invalid category");
+        require(_vote > 0 && _vote < 3, "voteNonCompeting :: invalid vote");
+
+        Category memory c = categories[categoryId];
+        NonCompetingProposal[] storage categoryQueue = categoryNonCompetingProposals[categoryId];
+
+        require(proposalId > 0 && proposalId <= c.lastProposalId, "voteNonCompeting :: invalid proposal id");
+
+        NonCompetingProposal storage proposal = categoryQueue[proposalId.sub(1)];
+
+        uint256 currentPeriod = getCurrentPeriod();
+
+        require(currentPeriod >= proposal.startPeriod, "voteNonCompeting :: proposal voting has not started");
+        require(currentPeriod <= (proposal.startPeriod.add(c.votingPeriodLength)), "voteNonCompeting :: proposal voting period has finished");
+        require(proposal.hasVoted[msg.sender] == Vote.Null, "voteNonCompeting :: sender has already voted");
+
+        uint256 userTokenBalance = votingToken.balanceOf(msg.sender);
+        uint256 votes = calculateVotesFromTokens(userTokenBalance);
+
+        Vote vote = Vote(_vote);
+
+        proposal.hasVoted[msg.sender] = vote;
+
+        if(vote == Vote.Yes) {
+            proposal.yesVotes = proposal.yesVotes.add(votes);
+        } else {
+            proposal.noVotes = proposal.noVotes.add(votes);
+        }
+
+        uint256 endTimestamp = calculateProposalEndTimestamp(proposal.startPeriod, c.votingPeriodLength);
+
+        updateMoveLockIn(msg.sender, endTimestamp);
+
+        emit NonCompetingVote(categoryId, proposalId, msg.sender, _vote);
+    }
+
+    function finalizeNonCompeting(uint256 categoryId, uint256 proposalId) public {
+        require(categoryId < categories.length, "finalizeNonCompeting :: invalid category");
+
+        Category memory c = categories[categoryId];
+        NonCompetingProposal[] storage categoryQueue = categoryNonCompetingProposals[categoryId];
+
+        require(proposalId > 0 && proposalId <= c.lastProposalId, "finalizeNonCompeting :: invalid proposal id");
+
+        NonCompetingProposal storage proposal = categoryQueue[proposalId.sub(1)];
+
+        uint256 currentPeriod = getCurrentPeriod();
+
+        require(currentPeriod > (proposal.startPeriod.add(c.votingPeriodLength)), "finalizeNonCompeting :: proposal voting period has not finished");
+
+        if(proposal.noVotes >= proposal.yesVotes) {
+            proposal.didPass = false;
+        } else {
+            paymentToken.transfer(proposal.proposer, proposal.requestedAmount);
+            proposal.didPass = true;
+        }
+
+        votingToken.transfer(msg.sender, finalizerReward);
+        votingToken.transfer(proposal.proposer, proposerDeposit.sub(finalizerReward));
+        proposal.processed = true;
+
+        emit NonCompetingFinalised(categoryId, proposalId, proposal.didPass);
     }
 
     function getCategoriesLength() public view returns(uint256) {
         return categories.length;
     }
 
-    function calculateProposalEndTimestamp(CategoryProposal memory cp) internal view returns (uint256) {
-        uint256 endPeriod = cp.startPeriod.add(categoryVotingPeriodLength);
+    function calculateProposalEndTimestamp(uint256 startPeriod, uint256 votingLength) internal view returns (uint256) {
+        uint256 endPeriod = startPeriod.add(votingLength);
         uint256 endTimestamp = endPeriod.mul(periodDuration);
         return endTimestamp.add(creationTime);
     }
-
 
     function updateMoveLockIn(address user, uint256 endTimestamp) internal {
         membersLockPeriod[user] = max(
@@ -261,6 +345,7 @@ contract CategoryVoting is ITokenTransferLimiter {
             endTimestamp
         );
     }
+
     // Votes is calculated as => sqrt(voter tokens balance) => 1 token = 1 vote; 9 tokens = 3 votes
     function calculateVotesFromTokens(uint256 tokens) private view returns(uint256) {
         // Call a Vyper SQRT contract in order to work with decimals in sqrt
@@ -286,8 +371,8 @@ contract CategoryVoting is ITokenTransferLimiter {
         return x >= y ? x : y;
     }
 
-    function getCurrentPeriod(uint periodLength) public view returns (uint256) {
-        return now.sub(creationTime).div(periodLength);
+    function getCurrentPeriod() public view returns (uint256) {
+        return now.sub(creationTime).div(periodDuration);
     }
 
 }

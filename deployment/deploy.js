@@ -35,7 +35,7 @@ const deploy = async (network, secret) => {
 
     const coToken = await deployer.deploy(COToken, {});
 
-    const votingContract = await deployCategoryVoting(deployer, coToken);
+    const votingContract = await deployCategoryVoting(deployer, coToken, daoContract);
 
     const cOrganisation = await deployContinuousOrganisation(deployer, daiContract.address, votingContract.contractAddress, coToken);
 
@@ -98,13 +98,12 @@ let deployContinuousOrganisation = async function (deployer, daiToken, votingCon
     return coContract;
 }
 
-let deployCategoryVoting = async function (deployer, votingToken) {
+let deployCategoryVoting = async function (deployer, votingToken, daiContract) {
 
     // Deploy Token SQRT Math
     const tokenSQRTContract = await deployer.deploy(TokensSQRT, {});
 
-
-    const votingContractDeployed = await deployer.deploy(CategoryVoting, {}, votingToken.contractAddress, tokenSQRTContract.contractAddress);
+    const votingContractDeployed = await deployer.deploy(CategoryVoting, {}, votingToken.contractAddress, tokenSQRTContract.contractAddress, daiContract.contractAddress);
     return votingContractDeployed;
 }
 

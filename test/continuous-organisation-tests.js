@@ -39,7 +39,7 @@ describe('Continuous Organisation Contract', function () {
 
             coTokenInstance = await contractInitializator.deployCOToken();
 
-            votingContractInstance = await contractInitializator.deployVotingContract(coTokenInstance.contractAddress);
+            votingContractInstance = await contractInitializator.deployVotingContract(coTokenInstance.contractAddress, CODAIInstance.contractAddress);
 
             coInstance = await contractInitializator.deployContinuousOrganisation(CODAIInstance, votingContractInstance, coTokenInstance);
 

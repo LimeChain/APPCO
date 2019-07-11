@@ -2,7 +2,7 @@ pragma solidity ^0.5.4;
 
 import "./Math/BondingMathematics.sol";
 import "./Tokens/ICOToken.sol";
-import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
+import "openzeppelin-solidity/contracts/token/ERC20/IERC20.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 
 contract ContinuousOrganisation { // TODO this should probably not be ownable
@@ -10,7 +10,7 @@ contract ContinuousOrganisation { // TODO this should probably not be ownable
     using SafeMath for uint256;
     
     BondingMathematics public bondingMath;
-    ERC20 public approvedToken; // Ex. DAI
+    IERC20 public approvedToken; // Ex. DAI
     ICOToken public coToken;
     address public votingContract;
     uint256 public totalInvestmentsAndDividends = 0;
@@ -36,7 +36,7 @@ contract ContinuousOrganisation { // TODO this should probably not be ownable
 
         coToken = ICOToken(_coToken);
         
-        approvedToken = ERC20(_approvedToken);
+        approvedToken = IERC20(_approvedToken);
         
         bondingMath = BondingMathematics(_bondingMath);
 
