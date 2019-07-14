@@ -31,11 +31,12 @@ const deploy = async (network, secret) => {
 
     // Change ENV in order to deploy on test net (Ropsten)
     const deployer = getDeployer(ENV.LOCAL, secret);
+    deployer.setDefaultOverrides({ gasLimit: 4700000 })
     const daiContract = await getDAIContract(deployer);
 
     const coToken = await deployer.deploy(COToken, {});
 
-    const votingContract = await deployCategoryVoting(deployer, coToken, daoContract);
+    const votingContract = await deployCategoryVoting(deployer, coToken, daiContract);
 
     const cOrganisation = await deployContinuousOrganisation(deployer, daiContract.address, votingContract.contractAddress, coToken);
 
@@ -103,7 +104,7 @@ let deployCategoryVoting = async function (deployer, votingToken, daiContract) {
     // Deploy Token SQRT Math
     const tokenSQRTContract = await deployer.deploy(TokensSQRT, {});
 
-    const votingContractDeployed = await deployer.deploy(CategoryVoting, {}, votingToken.contractAddress, tokenSQRTContract.contractAddress, daiContract.contractAddress);
+    const votingContractDeployed = await deployer.deploy(CategoryVoting, {}, votingToken.contractAddress, tokenSQRTContract.contractAddress, daiContract.address);
     return votingContractDeployed;
 }
 

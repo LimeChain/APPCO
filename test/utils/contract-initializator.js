@@ -11,7 +11,7 @@ const CategoryVoting = require('./../../build/CategoryVoting');
 const deployerWallet = accounts[0].signer;
 
 const deployer = new etherlime.EtherlimeGanacheDeployer();
-deployer.setDefaultOverrides({ gasLimit: 4700000 })
+deployer.setDefaultOverrides({ gasLimit: 6700000 })
 
 
 let deployContinuousOrganisation = async (COTokenDai, votingContractInstance, coTokenInstance) => {

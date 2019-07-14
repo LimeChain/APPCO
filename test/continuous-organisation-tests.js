@@ -8,6 +8,8 @@ describe('Continuous Organisation Contract', function () {
 
     const deployer = new etherlime.EtherlimeGanacheDeployer();
 
+    deployer.setDefaultOverrides({ gasLimit: 6700000 })
+
     const OWNER = accounts[0].signer;
     const INVESTOR = accounts[1].signer;
     const REPAYER = accounts[2].signer;
@@ -61,12 +63,6 @@ describe('Continuous Organisation Contract', function () {
         });
 
         describe('Unlocking', function () {
-
-            beforeEach(async () => {
-
-
-
-            });
 
             it('Should unlock the organisation', async () => {
                 let expectedBalance = "100000000000000000000"; // 20% from 500 DAI = 100 DAI

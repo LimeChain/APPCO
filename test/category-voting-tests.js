@@ -12,17 +12,24 @@ describe('Category Voting Contract', function () {
 	this.timeout(20000);
 
 	const OWNER = accounts[0].signer;
+	const RECEPIENT = accounts[4].signer;
+	const RECEPIENT2 = accounts[5].signer;
 	const FINALIZER = accounts[6].signer;
 	const PROPOSER = accounts[7].signer;
 	const PROPOSER2 = accounts[8].signer;
 	const VOTER = accounts[9].signer;
 
 	const ONE_TOKEN = ethers.utils.bigNumberify('1000000000000000000')
+	const TWO_TOKEN = ONE_TOKEN.mul(2);
 	const TEN_TOKEN = ONE_TOKEN.mul(10);
 
 	const SQRT_TEN_TOKENS = ethers.utils.bigNumberify('3162277660100000000');
 
 	const ONE_PERIOD = ethers.utils.bigNumberify(17280);
+
+	const PROPOSE_PERIOD_LENGTH = 10; // 2 days
+	const VOTING_PERIOD_LENGTH = 5; // 1 days
+	const REST_PERIOD_LENGTH = 15; // 3 days
 
 	const VOTING_TYPES = {
 		NULL: 0,
@@ -33,7 +40,7 @@ describe('Category Voting Contract', function () {
 	const VOTING_TYPE = VOTING_TYPES.NonCompeting;
 	const NAME = ethers.utils.formatBytes32String("Roadmap Development");
 	const DETAILS = ethers.utils.formatBytes32String("ipfshashgoeshere");
-	const VOTING_LEN = 5;
+	const VOTING_LEN = VOTING_PERIOD_LENGTH;
 
 
 
@@ -49,6 +56,12 @@ describe('Category Voting Contract', function () {
 	let coDaiContract;
 
 	let deployer = new etherlime.EtherlimeGanacheDeployer();
+
+	const now = async () => {
+		const blockNum = await deployer.provider.getBlockNumber();
+		const block = await deployer.provider.getBlock(blockNum);
+		return block.timestamp;
+	}
 
 	const deployTokenAndSQRTContracts = async () => {
 		coTokenContract = await deployer.deploy(COToken);
@@ -69,12 +82,12 @@ describe('Category Voting Contract', function () {
 
 	const proposeCategory = async () => {
 		await coTokenContract.from(PROPOSER).approve(categoryVotingContract.contractAddress, ONE_TOKEN);
-		await categoryVotingContract.from(PROPOSER).proposeCategory(VOTING_TYPE, NAME, DETAILS, VOTING_LEN);
+		await categoryVotingContract.from(PROPOSER).proposeCategory(VOTING_TYPE, NAME, DETAILS, VOTING_LEN, PROPOSE_PERIOD_LENGTH, REST_PERIOD_LENGTH);
 	}
 
 	const proposeCompetingCategory = async () => {
 		await coTokenContract.from(PROPOSER).approve(categoryVotingContract.contractAddress, ONE_TOKEN);
-		await categoryVotingContract.from(PROPOSER).proposeCategory(VOTING_TYPES.Competing, NAME, DETAILS, VOTING_LEN);
+		await categoryVotingContract.from(PROPOSER).proposeCategory(VOTING_TYPES.Competing, NAME, DETAILS, VOTING_LEN, PROPOSE_PERIOD_LENGTH, REST_PERIOD_LENGTH);
 	}
 
 	const voteYesOnProposal = async () => {
@@ -139,7 +152,7 @@ describe('Category Voting Contract', function () {
 			assert(canMoveTokensBefore, "Should be able move tokens before proposal");
 
 			await coTokenContract.from(PROPOSER).approve(categoryVotingContract.contractAddress, ONE_TOKEN);
-			await categoryVotingContract.from(PROPOSER).proposeCategory(VOTING_TYPE, NAME, DETAILS, VOTING_LEN);
+			await categoryVotingContract.from(PROPOSER).proposeCategory(VOTING_TYPE, NAME, DETAILS, VOTING_LEN, PROPOSE_PERIOD_LENGTH, REST_PERIOD_LENGTH);
 
 			const proposerTokenLockInAfter = await categoryVotingContract.membersLockPeriod(PROPOSER.address);
 			const lastProposalId = await categoryVotingContract.lastCategoryProposalId();
@@ -173,8 +186,8 @@ describe('Category Voting Contract', function () {
 		it('Should fail on wrong voting type', async () => {
 
 			await coTokenContract.from(PROPOSER).approve(categoryVotingContract.contractAddress, ONE_TOKEN);
-			await assert.revert(categoryVotingContract.from(PROPOSER).proposeCategory(3, NAME, DETAILS, VOTING_LEN));
-			await assert.revert(categoryVotingContract.from(PROPOSER).proposeCategory(0, NAME, DETAILS, VOTING_LEN));
+			await assert.revert(categoryVotingContract.from(PROPOSER).proposeCategory(3, NAME, DETAILS, VOTING_LEN, PROPOSE_PERIOD_LENGTH, REST_PERIOD_LENGTH));
+			await assert.revert(categoryVotingContract.from(PROPOSER).proposeCategory(0, NAME, DETAILS, VOTING_LEN, PROPOSE_PERIOD_LENGTH, REST_PERIOD_LENGTH));
 
 			const balanceAfter = await coTokenContract.balanceOf(PROPOSER.address);
 			assert(balanceAfter.eq(ONE_TOKEN), "CO Token was taken")
@@ -184,7 +197,7 @@ describe('Category Voting Contract', function () {
 		it('Should fail on wrong category name', async () => {
 
 			await coTokenContract.from(PROPOSER).approve(categoryVotingContract.contractAddress, ONE_TOKEN);
-			await assert.revert(categoryVotingContract.from(PROPOSER).proposeCategory(VOTING_TYPE, ethers.utils.formatBytes32String(""), DETAILS, VOTING_LEN));
+			await assert.revert(categoryVotingContract.from(PROPOSER).proposeCategory(VOTING_TYPE, ethers.utils.formatBytes32String(""), DETAILS, VOTING_LEN, PROPOSE_PERIOD_LENGTH, REST_PERIOD_LENGTH));
 
 			const balanceAfter = await coTokenContract.balanceOf(PROPOSER.address);
 			assert(balanceAfter.eq(ONE_TOKEN), "CO Token was taken")
@@ -194,7 +207,7 @@ describe('Category Voting Contract', function () {
 		it('Should fail on wrong category description', async () => {
 
 			await coTokenContract.from(PROPOSER).approve(categoryVotingContract.contractAddress, ONE_TOKEN);
-			await assert.revert(categoryVotingContract.from(PROPOSER).proposeCategory(VOTING_TYPE, NAME, ethers.utils.formatBytes32String(""), VOTING_LEN));
+			await assert.revert(categoryVotingContract.from(PROPOSER).proposeCategory(VOTING_TYPE, NAME, ethers.utils.formatBytes32String(""), VOTING_LEN, PROPOSE_PERIOD_LENGTH, REST_PERIOD_LENGTH));
 
 			const balanceAfter = await coTokenContract.balanceOf(PROPOSER.address);
 			assert(balanceAfter.eq(ONE_TOKEN), "CO Token was taken")
@@ -204,7 +217,7 @@ describe('Category Voting Contract', function () {
 		it('Should fail on wrong voting period length', async () => {
 
 			await coTokenContract.from(PROPOSER).approve(categoryVotingContract.contractAddress, ONE_TOKEN);
-			await assert.revert(categoryVotingContract.from(PROPOSER).proposeCategory(VOTING_TYPE, NAME, DETAILS, 0));
+			await assert.revert(categoryVotingContract.from(PROPOSER).proposeCategory(VOTING_TYPE, NAME, DETAILS, 0, PROPOSE_PERIOD_LENGTH, REST_PERIOD_LENGTH));
 
 			const balanceAfter = await coTokenContract.balanceOf(PROPOSER.address);
 			assert(balanceAfter.eq(ONE_TOKEN), "CO Token was taken")
@@ -214,13 +227,13 @@ describe('Category Voting Contract', function () {
 		it('Should propose second category successfully', async () => {
 
 			await coTokenContract.from(PROPOSER).approve(categoryVotingContract.contractAddress, ONE_TOKEN);
-			await categoryVotingContract.from(PROPOSER).proposeCategory(VOTING_TYPE, NAME, DETAILS, VOTING_LEN);
+			await categoryVotingContract.from(PROPOSER).proposeCategory(VOTING_TYPE, NAME, DETAILS, VOTING_LEN, PROPOSE_PERIOD_LENGTH, REST_PERIOD_LENGTH);
 
 			await utils.timeTravel(deployer.provider, ONE_PERIOD.mul(12).toNumber());
 			await coTokenContract.mint(PROPOSER.address, ONE_TOKEN);
 
 			await coTokenContract.from(PROPOSER).approve(categoryVotingContract.contractAddress, ONE_TOKEN);
-			await categoryVotingContract.from(PROPOSER).proposeCategory(VOTING_TYPE, NAME, DETAILS, VOTING_LEN);
+			await categoryVotingContract.from(PROPOSER).proposeCategory(VOTING_TYPE, NAME, DETAILS, VOTING_LEN, PROPOSE_PERIOD_LENGTH, REST_PERIOD_LENGTH);
 
 			const lastProposalId = await categoryVotingContract.lastCategoryProposalId();
 
@@ -231,13 +244,13 @@ describe('Category Voting Contract', function () {
 		it('Should fail on not enough tokens', async () => {
 
 			await coTokenContract.from(PROPOSER).approve(categoryVotingContract.contractAddress, ONE_TOKEN);
-			await categoryVotingContract.from(PROPOSER).proposeCategory(VOTING_TYPE, NAME, DETAILS, VOTING_LEN);
+			await categoryVotingContract.from(PROPOSER).proposeCategory(VOTING_TYPE, NAME, DETAILS, VOTING_LEN, PROPOSE_PERIOD_LENGTH, REST_PERIOD_LENGTH);
 
 			await utils.timeTravel(deployer.provider, ONE_PERIOD.mul(12).toNumber());
 			await coTokenContract.mint(PROPOSER.address, ONE_TOKEN.div(2));
 
 			await coTokenContract.from(PROPOSER).approve(categoryVotingContract.contractAddress, ONE_TOKEN);
-			await assert.revert(categoryVotingContract.from(PROPOSER).proposeCategory(VOTING_TYPE, NAME, DETAILS, VOTING_LEN));
+			await assert.revert(categoryVotingContract.from(PROPOSER).proposeCategory(VOTING_TYPE, NAME, DETAILS, VOTING_LEN, PROPOSE_PERIOD_LENGTH, REST_PERIOD_LENGTH));
 
 		});
 
@@ -320,7 +333,7 @@ describe('Category Voting Contract', function () {
 		it('Should be able to vote twice on different proposals', async () => {
 			await coTokenContract.mint(PROPOSER2.address, ONE_TOKEN);
 			await coTokenContract.from(PROPOSER2).approve(categoryVotingContract.contractAddress, ONE_TOKEN);
-			await categoryVotingContract.from(PROPOSER2).proposeCategory(VOTING_TYPE, NAME, DETAILS, VOTING_LEN);
+			await categoryVotingContract.from(PROPOSER2).proposeCategory(VOTING_TYPE, NAME, DETAILS, VOTING_LEN, PROPOSE_PERIOD_LENGTH, REST_PERIOD_LENGTH);
 			await utils.timeTravel(deployer.provider, ONE_PERIOD.toNumber());
 			const categoryProposalId2 = await categoryVotingContract.lastCategoryProposalId();
 			await categoryVotingContract.from(VOTER).voteCategory(categoryProposalId, VOTE.NO);
@@ -339,7 +352,7 @@ describe('Category Voting Contract', function () {
 		it('Should fail on voting for proposal not started', async () => {
 			await coTokenContract.mint(PROPOSER2.address, ONE_TOKEN);
 			await coTokenContract.from(PROPOSER2).approve(categoryVotingContract.contractAddress, ONE_TOKEN);
-			await categoryVotingContract.from(PROPOSER2).proposeCategory(VOTING_TYPE, NAME, DETAILS, VOTING_LEN);
+			await categoryVotingContract.from(PROPOSER2).proposeCategory(VOTING_TYPE, NAME, DETAILS, VOTING_LEN, PROPOSE_PERIOD_LENGTH, REST_PERIOD_LENGTH);
 			const categoryProposalId2 = await categoryVotingContract.lastCategoryProposalId();
 			await assert.revert(categoryVotingContract.from(VOTER).voteCategory(categoryProposalId2, VOTE.NO));
 		});
@@ -617,6 +630,13 @@ describe('Category Voting Contract', function () {
 
 			});
 
+			it('Should not allow the proposer to move tokens until end of proposal', async () => {
+				await coTokenContract.mint(VOTER.address, ONE_TOKEN);
+				await utils.timeTravel(deployer.provider, ONE_PERIOD.mul(2).toNumber()); // Get into the period
+				await categoryVotingContract.from(VOTER).voteNonCompeting(category.id, proposal.id, VOTE.YES, { gasLimit: 1500000 });
+				await assert.revert(coTokenContract.from(PROPOSER).transfer(OWNER.address, ONE_TOKEN));
+			});
+
 		});
 
 		describe('Finalizing proposal', async function () {
@@ -702,6 +722,264 @@ describe('Category Voting Contract', function () {
 				await categoryVotingContract.from(VOTER).voteNonCompeting(category.id, proposal.id, VOTE.NO, { gasLimit: 1500000 });
 				await assert.revert(categoryVotingContract.from(FINALIZER).finalizeNonCompeting(category.id, proposal.id));
 			});
+
+		});
+
+
+	});
+
+	describe('Competing voting', async function () {
+
+		let category;
+
+		beforeEach(async () => {
+			await deployTokenAndSQRTContracts();
+			await deployAndInitializeVotingContract();
+			await mintProposerTokens();
+			await proposeCompetingCategory();
+
+			categoryProposalId = await categoryVotingContract.lastCategoryProposalId();
+			await voteYesOnProposal();
+
+			await utils.timeTravel(deployer.provider, ONE_PERIOD.mul(12).toNumber());
+
+			await categoryVotingContract.from(FINALIZER).finalizeCategoryVoting(categoryProposalId);
+
+			category = await categoryVotingContract.categories(0);
+
+			await coTokenContract.mint(PROPOSER.address, ONE_TOKEN);
+			await coTokenContract.from(PROPOSER).approve(categoryVotingContract.contractAddress, ONE_TOKEN);
+
+		})
+
+		describe('Submitting proposal', async function () {
+			it('Should propose category successfully', async () => {
+				await categoryVotingContract.submitCompetingProposal(category.id, RECEPIENT.address, DETAILS, TWO_TOKEN);
+				await categoryVotingContract.submitCompetingProposal(category.id, RECEPIENT2.address, DETAILS, ONE_TOKEN);
+
+				const proposalsCount = await categoryVotingContract.getCompetingCurrentRoundProposalsCount(category.id);
+
+				assert(proposalsCount.eq(2), "The proposals count not storred correctly");
+
+				const proposal1 = await categoryVotingContract.currentRoundProposals(category.id, 0);
+				const proposal2 = await categoryVotingContract.currentRoundProposals(category.id, 1);
+
+				assert.strictEqual(proposal1.recepient, RECEPIENT.address, "The stored proposal 1 recepient address is not the same");
+				assert.strictEqual(proposal1.details, DETAILS, "The stored proposal 1 details is not the same");
+				assert(proposal1.requestedAmount.eq(TWO_TOKEN), "The stored proposal 1 requested amount is not two tokens");
+				assert(proposal1.votes.eq(0), "The stored proposal 1 already has votes");
+
+				assert.strictEqual(proposal2.recepient, RECEPIENT2.address, "The stored proposal 2 recepient address is not the same");
+				assert.strictEqual(proposal2.details, DETAILS, "The stored proposal 2 details is not the same");
+				assert(proposal2.requestedAmount.eq(ONE_TOKEN), "The stored proposal 2 requested amount is not two tokens");
+				assert(proposal2.votes.eq(0), "The stored proposal 2 already has votes");
+
+			})
+
+			it('Should fail when proposing not from the governer', async () => {
+				await assert.revert(categoryVotingContract.from(PROPOSER).submitCompetingProposal(category.id, RECEPIENT.address, DETAILS, TWO_TOKEN));
+			})
+
+			it('Should fail on non-existant category', async () => {
+				await assert.revert(categoryVotingContract.submitCompetingProposal(15, RECEPIENT.address, DETAILS, TWO_TOKEN));
+			})
+
+			it('Should fail on non-existant category', async () => {
+				await assert.revert(categoryVotingContract.submitCompetingProposal(category.id, RECEPIENT.address, ethers.utils.formatBytes32String(""), TWO_TOKEN));
+			})
+
+			it('Should fail when proposing not in the proposing period', async () => {
+				await utils.timeTravel(deployer.provider, ONE_PERIOD.mul(PROPOSE_PERIOD_LENGTH + 1).toNumber());
+				await assert.revert(categoryVotingContract.submitCompetingProposal(category.id, RECEPIENT.address, DETAILS, TWO_TOKEN));
+			})
+
+			it('Should fail when proposing in the wrong category', async () => {
+				await deployTokenAndSQRTContracts();
+				await deployAndInitializeVotingContract();
+				await mintProposerTokens();
+				await proposeCategory();
+
+				categoryProposalId = await categoryVotingContract.lastCategoryProposalId();
+				await voteYesOnProposal();
+
+				await utils.timeTravel(deployer.provider, ONE_PERIOD.mul(12).toNumber());
+
+				await categoryVotingContract.from(FINALIZER).finalizeCategoryVoting(categoryProposalId);
+
+				category = await categoryVotingContract.categories(0);
+
+				await coTokenContract.mint(PROPOSER.address, ONE_TOKEN);
+				await coTokenContract.from(PROPOSER).approve(categoryVotingContract.contractAddress, ONE_TOKEN);
+				await categoryVotingContract.from(PROPOSER).proposeNonCompeting(category.id, DETAILS, ONE_TOKEN, { gasLimit: 1500000 })
+				await utils.timeTravel(deployer.provider, ONE_PERIOD.toNumber()); // get into voting
+				await assert.revert(categoryVotingContract.submitCompetingProposal(category.id, RECEPIENT.address, DETAILS, TWO_TOKEN));
+			})
+
+		});
+
+
+		describe('Voting on proposal', async function () {
+
+			beforeEach(async () => {
+				await deployTokenAndSQRTContracts();
+				await deployAndInitializeVotingContract();
+				await mintProposerTokens();
+				await proposeCompetingCategory();
+
+				categoryProposalId = await categoryVotingContract.lastCategoryProposalId();
+				await voteYesOnProposal();
+
+				await utils.timeTravel(deployer.provider, ONE_PERIOD.mul(12).toNumber());
+
+				await categoryVotingContract.from(FINALIZER).finalizeCategoryVoting(categoryProposalId);
+
+				category = await categoryVotingContract.categories(0);
+
+				await coTokenContract.mint(PROPOSER.address, ONE_TOKEN);
+				await coTokenContract.from(PROPOSER).approve(categoryVotingContract.contractAddress, ONE_TOKEN);
+
+				await categoryVotingContract.submitCompetingProposal(category.id, RECEPIENT.address, DETAILS, TWO_TOKEN);
+				await categoryVotingContract.submitCompetingProposal(category.id, RECEPIENT2.address, DETAILS, ONE_TOKEN);
+				await categoryVotingContract.submitCompetingProposal(category.id, PROPOSER.address, DETAILS, TWO_TOKEN);
+			})
+
+			it('Should successfully vote for proposal', async () => {
+				await utils.timeTravel(deployer.provider, ONE_PERIOD.mul(PROPOSE_PERIOD_LENGTH + 1).toNumber()); // Get into the period
+				await categoryVotingContract.from(VOTER).voteCompetingProposal(category.id, 1);
+
+				const proposalAfter = await categoryVotingContract.currentRoundProposals(category.id, 1);
+
+				assert(proposalAfter.votes.eq(SQRT_TEN_TOKENS), "The voter has not voted with sqrt of his 10 tokens");
+			})
+
+			it('Should fail when voter has less than 1 token', async () => {
+				await utils.timeTravel(deployer.provider, ONE_PERIOD.mul(PROPOSE_PERIOD_LENGTH + 1).toNumber()); // Get into the period
+				await assert.revert(categoryVotingContract.from(RECEPIENT).voteCompetingProposal(category.id, 1));
+			})
+
+			it('Should fail on wrong category', async () => {
+				await utils.timeTravel(deployer.provider, ONE_PERIOD.mul(PROPOSE_PERIOD_LENGTH + 1).toNumber()); // Get into the period
+				await assert.revert(categoryVotingContract.from(VOTER).voteCompetingProposal(17, 1));
+			})
+
+			it('Should fail on wrong index', async () => {
+				await utils.timeTravel(deployer.provider, ONE_PERIOD.mul(PROPOSE_PERIOD_LENGTH + 1).toNumber()); // Get into the period
+				await assert.revert(categoryVotingContract.from(VOTER).voteCompetingProposal(category.id, 3));
+			})
+
+			it('Should fail on voting outside of the period', async () => {
+				await assert.revert(categoryVotingContract.from(VOTER).voteCompetingProposal(category.id, 1));
+			})
+
+			it('Should fail when proposing in the wrong category', async () => {
+				await deployTokenAndSQRTContracts();
+				await deployAndInitializeVotingContract();
+				await mintProposerTokens();
+				await proposeCategory();
+
+				categoryProposalId = await categoryVotingContract.lastCategoryProposalId();
+				await voteYesOnProposal();
+
+				await utils.timeTravel(deployer.provider, ONE_PERIOD.mul(12).toNumber());
+
+				await categoryVotingContract.from(FINALIZER).finalizeCategoryVoting(categoryProposalId);
+
+				category = await categoryVotingContract.categories(0);
+
+				await coTokenContract.mint(PROPOSER.address, ONE_TOKEN);
+				await coTokenContract.from(PROPOSER).approve(categoryVotingContract.contractAddress, ONE_TOKEN);
+				await categoryVotingContract.from(PROPOSER).proposeNonCompeting(category.id, DETAILS, ONE_TOKEN, { gasLimit: 1500000 })
+				await assert.revert(categoryVotingContract.from(VOTER).voteCompetingProposal(category.id, 0));
+			})
+
+			it('Should not allow the voter to move tokens until end of proposal', async () => {
+
+
+				await coTokenContract.mint(VOTER.address, ONE_TOKEN);
+				await utils.timeTravel(deployer.provider, ONE_PERIOD.mul(PROPOSE_PERIOD_LENGTH + 1).toNumber()); // Get into the period
+				await categoryVotingContract.from(VOTER).voteCompetingProposal(category.id, 1);
+
+				const canMoveTokensAfter = await categoryVotingContract.canMoveTokens(VOTER.address, categoryVotingContract.contractAddress, ONE_TOKEN);
+				const getCurrentPeriodEndTimestamp = await categoryVotingContract.getCurrentPeriodEndTimestamp(category.id);
+
+				const curT = await now();
+				await assert.revert(coTokenContract.from(VOTER).transfer(OWNER.address, ONE_TOKEN));
+			});
+
+		});
+
+		describe('Finalizing proposal', async function () {
+			beforeEach(async () => {
+				await deployTokenAndSQRTContracts();
+				await deployAndInitializeVotingContract();
+				await mintProposerTokens();
+				await proposeCompetingCategory();
+
+				categoryProposalId = await categoryVotingContract.lastCategoryProposalId();
+				await voteYesOnProposal();
+
+				await utils.timeTravel(deployer.provider, ONE_PERIOD.mul(12).toNumber());
+
+				await categoryVotingContract.from(FINALIZER).finalizeCategoryVoting(categoryProposalId);
+
+				category = await categoryVotingContract.categories(0);
+
+				await coTokenContract.mint(PROPOSER.address, ONE_TOKEN);
+				await coTokenContract.from(PROPOSER).approve(categoryVotingContract.contractAddress, ONE_TOKEN);
+
+				await categoryVotingContract.submitCompetingProposal(category.id, RECEPIENT.address, DETAILS, TWO_TOKEN);
+				await categoryVotingContract.submitCompetingProposal(category.id, RECEPIENT2.address, DETAILS, ONE_TOKEN);
+				await categoryVotingContract.submitCompetingProposal(category.id, PROPOSER.address, DETAILS, TWO_TOKEN);
+				await utils.timeTravel(deployer.provider, ONE_PERIOD.mul(PROPOSE_PERIOD_LENGTH + 1).toNumber()); // Get into the period
+				await categoryVotingContract.from(VOTER).voteCompetingProposal(category.id, 1);
+			})
+
+			it('Should successfully finalize the proposal and disburse the money to the recepient', async () => {
+				await utils.timeTravel(deployer.provider, ONE_PERIOD.mul(VOTING_PERIOD_LENGTH).toNumber()); // Get into the period
+				const proposerDAIBalanceBefore = await coDaiContract.balanceOf(RECEPIENT2.address);
+
+				await categoryVotingContract.from(FINALIZER).finalizeCompetingProposal(category.id);
+
+				const proposerDAIBalanceAfter = await coDaiContract.balanceOf(RECEPIENT2.address);
+
+				const proposalsCount = await categoryVotingContract.getCompetingCurrentRoundProposalsCount(category.id);
+				assert(proposalsCount.eq(0), "The voter has not voted with sqrt of his 10 tokens");
+				assert(proposerDAIBalanceAfter.eq(proposerDAIBalanceBefore.add(ONE_TOKEN)));
+
+				const winningProposal = await categoryVotingContract.categoryRoundWinners(category.id, 1);
+
+				assert.strictEqual(winningProposal.recepient, RECEPIENT2.address, "The winning proposal recepient was not the same");
+			})
+
+			it('should not finalize the proposal before the end of the period', async () => {
+				await assert.revert(categoryVotingContract.from(FINALIZER).finalizeCompetingProposal(category.id));
+			})
+
+			it('should not finalize wrong category id', async () => {
+				await utils.timeTravel(deployer.provider, ONE_PERIOD.mul(VOTING_PERIOD_LENGTH).toNumber()); // Get into the period
+				await assert.revert(categoryVotingContract.from(FINALIZER).finalizeCompetingProposal(17));
+			})
+
+			it('Should fail when proposing in the wrong category', async () => {
+				await deployTokenAndSQRTContracts();
+				await deployAndInitializeVotingContract();
+				await mintProposerTokens();
+				await proposeCategory();
+
+				categoryProposalId = await categoryVotingContract.lastCategoryProposalId();
+				await voteYesOnProposal();
+
+				await utils.timeTravel(deployer.provider, ONE_PERIOD.mul(12).toNumber());
+
+				await categoryVotingContract.from(FINALIZER).finalizeCategoryVoting(categoryProposalId);
+
+				category = await categoryVotingContract.categories(0);
+
+				await coTokenContract.mint(PROPOSER.address, ONE_TOKEN);
+				await coTokenContract.from(PROPOSER).approve(categoryVotingContract.contractAddress, ONE_TOKEN);
+				await categoryVotingContract.from(PROPOSER).proposeNonCompeting(category.id, DETAILS, ONE_TOKEN, { gasLimit: 1500000 })
+				await assert.revert(categoryVotingContract.from(FINALIZER).finalizeCompetingProposal(category.id));
+			})
 
 		});
 
