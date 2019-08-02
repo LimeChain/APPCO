@@ -14,6 +14,9 @@ contract ContinuousOrganisation { // TODO this should probably not be ownable
     ICOToken public coToken;
     address public votingContract;
     uint256 public totalInvestmentsAndDividends = 0;
+
+    uint256 public initialInvestedDAI = 0;
+    uint256 public initialCOTokenMinted = 0;
     
     uint256 constant public RESERVE_DIVIDER = 5; // Means that it will leave 1/5 (20%) in the reserve // 1 CO Token
 
@@ -75,8 +78,7 @@ contract ContinuousOrganisation { // TODO this should probably not be ownable
     }
     
     function COTokensForInvestment(uint256 investAmount) public view returns(uint256) {
-        uint256 tokensAfterPurchase = bondingMath.calcPurchase(coToken.totalSupply(), totalInvestmentsAndDividends, investAmount);
-        return tokensAfterPurchase.sub(coToken.totalSupply());
+        return bondingMath.calcPurchase(coToken.totalSupply(), initialCOTokenMinted, investAmount);
     }
 
     function DAIOnExit(uint256 coTokenAmount) public view returns(uint256) {
@@ -89,11 +91,14 @@ contract ContinuousOrganisation { // TODO this should probably not be ownable
         require(approvedToken.allowance(msg.sender, address(this)) >= investAmount, "unlockOrganisation:: Unlocker tries to unlock with unapproved amount");
         coToken.mint(msg.sender, mintedCOTokens);
 
+        
         uint256 reserveAmount = investAmount.div(RESERVE_DIVIDER);
         approvedToken.transferFrom(msg.sender, address(this), reserveAmount);
         approvedToken.transferFrom(msg.sender, votingContract, investAmount.sub(reserveAmount));
         
         totalInvestmentsAndDividends = investAmount;
+        initialInvestedDAI = investAmount;
+        initialCOTokenMinted = mintedCOTokens;
         
         emit UnlockOrganisation(msg.sender, investAmount);
     }

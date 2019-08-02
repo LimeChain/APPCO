@@ -12,9 +12,7 @@ const TokensSQRT = require('./../build/TokensSQRT.json');
 const UNLOCK_AMOUNT = "500000000000000000000";
 const UNLOCK_MINT = "499000000000000000000";
 
-// Mogul wallet address
-let CO_BANK = '0x53E63Ee92e1268919CF4757A9b1d48048C501A50';
-let DAI_TOKEN_ADDRESS = '0xe0B206A30c778f8809c753844210c73D23001a96';
+let DAI_TOKEN_ADDRESS = '0x9738c64e9435729a7b6a65c6b34186f151117f86';
 
 const ENV = {
     LOCAL: 'LOCAL',
@@ -23,15 +21,16 @@ const ENV = {
 
 const DEPLOYERS = {
     LOCAL: (secret) => { return new etherlime.EtherlimeGanacheDeployer() },
-    TEST: (secret) => { return new etherlime.InfuraPrivateKeyDeployer(secret, 'ropsten', '') }
+    TEST: (secret, network) => { return new etherlime.InfuraPrivateKeyDeployer(secret, network, '40c2813049e44ec79cb4d7e0d18de173') }
 }
 
 
-const deploy = async (network, secret) => {
+const deploy = async (network, secret, etherscanApiKey) => {
 
     // Change ENV in order to deploy on test net (Ropsten)
-    const deployer = getDeployer(ENV.LOCAL, secret);
+    const deployer = getDeployer(ENV.TEST, secret, network);
     deployer.setDefaultOverrides({ gasLimit: 4700000 })
+    deployer.setVerifierApiKey(etherscanApiKey)
     const daiContract = await getDAIContract(deployer);
 
     const coToken = await deployer.deploy(COToken, {});
@@ -47,11 +46,10 @@ const deploy = async (network, secret) => {
 
 };
 
-let getDeployer = function (env, secret) {
-    let deployer = DEPLOYERS[env](secret);
+let getDeployer = function (env, secret, network) {
+    let deployer = DEPLOYERS[env](secret, network);
 
     deployer.ENV = env;
-    deployer.defaultOverrides = { gasLimit: 4700000, gasPrice: 9000000000 };
 
     return deployer;
 }
@@ -67,10 +65,6 @@ let getDAIContract = async function (deployer) {
     return new ethers.Contract(DAI_TOKEN_ADDRESS, DAIToken.abi, deployer.signer);
 }
 
-let deployDAIExchange = async function (deployer, daiToken) {
-    const exchangeContractDeployed = await deployer.deploy(DAIExchange, {}, daiToken.address);
-    return exchangeContractDeployed;
-}
 
 let deployContinuousOrganisation = async function (deployer, daiToken, votingContract, coTokenContract) {
 
@@ -83,7 +77,7 @@ let deployContinuousOrganisation = async function (deployer, daiToken, votingCon
 
 
     // Deploy Organization
-    const coContract = await deployer.deploy(ContinuousOrganisation, {},
+    const coContract = await deployer.deployAndVerify(ContinuousOrganisation, {},
         bondingMathContractDeployed.contractAddress,
         daiToken,
         coTokenContract.contractAddress,
@@ -104,7 +98,7 @@ let deployCategoryVoting = async function (deployer, votingToken, daiContract) {
     // Deploy Token SQRT Math
     const tokenSQRTContract = await deployer.deploy(TokensSQRT, {});
 
-    const votingContractDeployed = await deployer.deploy(CategoryVoting, {}, votingToken.contractAddress, tokenSQRTContract.contractAddress, daiContract.address);
+    const votingContractDeployed = await deployer.deployAndVerify(CategoryVoting, {}, votingToken.contractAddress, tokenSQRTContract.contractAddress, daiContract.address);
     return votingContractDeployed;
 }
 

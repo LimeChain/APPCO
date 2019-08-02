@@ -1,6 +1,7 @@
 const etherlime = require('etherlime-lib');
 const { buyCalc, sellCalc } = require('./utils/token-price-calculation');
 const contractInitializator = require('./utils/contract-initializator');
+const ethers = require('ethers');
 
 describe('Continuous Organisation Contract', function () {
 
@@ -15,17 +16,16 @@ describe('Continuous Organisation Contract', function () {
     const REPAYER = accounts[2].signer;
     let votingContract;
 
-    const INITIAL_COTOKEN_SUPPLY = "1000000000000000000";
 
     const ONE_ETH = "1000000000000000000";
     const TWO_ETH = "2000000000000000000";
     const normalization = 1000000000000000000;
 
     const INVESTMENT_AMOUNT = ONE_ETH;
-    const UNLOCK_AMOUNT = "500000000000000000000";
-    const UNLOCK_MINT = "499000000000000000000";
+    const UNLOCK_AMOUNT = ethers.utils.bigNumberify("250000000000000000000"); // 250 DAI
+    const UNLOCK_MINT = ethers.utils.bigNumberify("500000000000000000000"); // 500 COToken
 
-    const DOUBLE_UNLOCK_AMOUNT = "1000000000000000000000";
+    const DOUBLE_UNLOCK_AMOUNT = "500000000000000000000";
 
     let CODAIInstance;
     let coTokenInstance;
@@ -45,12 +45,12 @@ describe('Continuous Organisation Contract', function () {
 
             coInstance = await contractInitializator.deployContinuousOrganisation(CODAIInstance, votingContractInstance, coTokenInstance);
 
-            // Mint and Approve 500 DAI in order to unlock the organization
+            // Mint and Approve 250 DAI in order to unlock the organization
             await contractInitializator.mintDAI(CODAIInstance, OWNER.address, UNLOCK_AMOUNT);
             await contractInitializator.approveDAI(CODAIInstance, OWNER, coInstance.contractAddress, UNLOCK_AMOUNT);
 
-            await contractInitializator.mintDAI(CODAIInstance, INVESTOR.address, ONE_ETH);
-            await contractInitializator.approveDAI(CODAIInstance, INVESTOR, coInstance.contractAddress, ONE_ETH);
+            await contractInitializator.mintDAI(CODAIInstance, INVESTOR.address, INVESTMENT_AMOUNT);
+            await contractInitializator.approveDAI(CODAIInstance, INVESTOR, coInstance.contractAddress, INVESTMENT_AMOUNT);
 
         });
 
@@ -65,7 +65,7 @@ describe('Continuous Organisation Contract', function () {
         describe('Unlocking', function () {
 
             it('Should unlock the organisation', async () => {
-                let expectedBalance = "100000000000000000000"; // 20% from 500 DAI = 100 DAI
+                let expectedBalance = "50000000000000000000"; // 20% from 250 DAI = 50 DAI
 
                 await coInstance.unlockOrganisation(UNLOCK_AMOUNT, UNLOCK_MINT);
                 let organisationBalance = await CODAIInstance.balanceOf(coInstance.contractAddress);
@@ -90,27 +90,33 @@ describe('Continuous Organisation Contract', function () {
             beforeEach(async () => {
                 votingContractInstance = await contractInitializator.deployTokenSQRT();
                 await coInstance.unlockOrganisation(UNLOCK_AMOUNT, UNLOCK_MINT);
-                await coInstance.from(INVESTOR).invest(INVESTMENT_AMOUNT, {
-                    gasLimit: 300000
-                });
                 votingContract = await coInstance.votingContract();
             });
 
             it('should send correct dai amount to the voting contract', async () => {
-                const EXPECTED_BANK_BALANCE = '400800000000000000000'; // 400 DAI + 0.8 DAI
+                await coInstance.from(INVESTOR).invest(INVESTMENT_AMOUNT, {
+                    gasLimit: 3000000
+                });
+                const EXPECTED_BANK_BALANCE = '200800000000000000000';
                 let bankBalance = await CODAIInstance.balanceOf(votingContract);
                 assert(bankBalance.eq(EXPECTED_BANK_BALANCE), 'Incorrect bank balance after investment');
             });
 
             it('should send correct dai amount to the reserve', async () => {
 
-                const EXPECTED_RESERVE_BALANCE = '100200000000000000000'; // 100 DAI + 0.2 DAI
+                await coInstance.from(INVESTOR).invest(INVESTMENT_AMOUNT, {
+                    gasLimit: 300000
+                });
+                const EXPECTED_RESERVE_BALANCE = '50200000000000000000'; // 100 DAI + 0.2 DAI
                 let reserveBalance = await CODAIInstance.balanceOf(coInstance.contractAddress);
                 assert(reserveBalance.eq(EXPECTED_RESERVE_BALANCE), 'Incorrect reserve balance after investment');
             });
 
             it('should send correct amount co tokens to the investor', async () => {
-                const EXPECTED_INVESTOR_CO_BALANCE = (buyCalc(UNLOCK_MINT, UNLOCK_AMOUNT, INVESTMENT_AMOUNT) / normalization).toFixed(7);
+                await coInstance.from(INVESTOR).invest(INVESTMENT_AMOUNT, {
+                    gasLimit: 300000
+                });
+                const EXPECTED_INVESTOR_CO_BALANCE = (buyCalc(UNLOCK_MINT, UNLOCK_MINT, INVESTMENT_AMOUNT) / normalization).toFixed(7);
                 let investorCoTokenBalance = await coTokenInstance.balanceOf(INVESTOR.address);
                 investorCoTokenBalance = (Number(investorCoTokenBalance.toString()) / normalization).toFixed(7);
 
@@ -118,12 +124,18 @@ describe('Continuous Organisation Contract', function () {
             });
 
             it('Should receive correct invest amount', async () => {
-                const EXPECTED_INVESTMENTS_AMOUNT = '501000000000000000000'; // 501 DAI
+                await coInstance.from(INVESTOR).invest(INVESTMENT_AMOUNT, {
+                    gasLimit: 300000
+                });
+                const EXPECTED_INVESTMENTS_AMOUNT = '251000000000000000000'; // 501 DAI
                 let totalDAIInvestments = await coInstance.totalInvestmentsAndDividends();
                 assert(totalDAIInvestments.eq(EXPECTED_INVESTMENTS_AMOUNT), 'Incorrect investments amount after investment');
             });
 
             it('Should throw if an investor tries to invest with unapproved DAI amount', async () => {
+                await coInstance.from(INVESTOR).invest(INVESTMENT_AMOUNT, {
+                    gasLimit: 300000
+                });
                 let investorWithoutDAI = accounts[3].signer;
                 await assert.revert(coInstance.from(investorWithoutDAI).invest(ONE_ETH), 'An investment has been processed with unapproved DAI amount');
             });
@@ -219,7 +231,7 @@ describe('Continuous Organisation Contract', function () {
                 await contractInitializator.approveDAI(CODAIInstance, REPAYER.address, coInstance.contractAddress, ONE_ETH);
             });
 
-            it('Should lower COToken returned on investment after paying dividends', async () => {
+            it('Should not lower COToken returned on investment after paying dividends', async () => {
 
                 const coTokensPerInvestmentBefore = await coInstance.COTokensForInvestment(INVESTMENT_AMOUNT);
 
@@ -229,7 +241,7 @@ describe('Continuous Organisation Contract', function () {
 
                 const coTokensPerInvestmentAfter = await coInstance.COTokensForInvestment(INVESTMENT_AMOUNT);
 
-                assert(coTokensPerInvestmentAfter.lt(coTokensPerInvestmentBefore), "The tokens received after dividends repayment were not less than before")
+                assert(coTokensPerInvestmentAfter.eq(coTokensPerInvestmentBefore), "The tokens received after dividends repayment were not equal")
 
             });
 

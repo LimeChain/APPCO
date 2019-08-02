@@ -1,8 +1,8 @@
 pragma solidity ^0.5.3;
 
-import "./../Math/Convert.sol";
-import "./../Tokens/ICOToken.sol";
-import "./../ITokenTransferLimiter.sol";
+import "./Math/Convert.sol";
+import "./Tokens/ICOToken.sol";
+import "./ITokenTransferLimiter.sol";
 import "openzeppelin-solidity/contracts/token/ERC20/IERC20.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
